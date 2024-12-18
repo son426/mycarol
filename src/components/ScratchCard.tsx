@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useScratchStore } from "../stores/useScratchStore";
+import testImage from "../assets/images/test.jpeg";
 
 interface ScratchCardProps {
   imageUrl?: string;
@@ -7,60 +8,139 @@ interface ScratchCardProps {
   height?: number;
   onComplete?: () => void;
   threshold?: number;
+  songTitle?: string;
+  artistName?: string;
 }
 
+const ANIMATION_DURATION = 1200;
+
 const ScratchCard: React.FC<ScratchCardProps> = ({
-  imageUrl = "/api/placeholder/400/300",
-  width = 400,
-  height = 300,
+  imageUrl = testImage,
+  width: initialWidth = 400,
+  height: initialHeight = 300,
   onComplete,
   threshold = 20,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [width, setWidth] = useState(initialWidth);
+  const [height, setHeight] = useState(initialHeight);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [lastPosition, setLastPosition] = useState<{ x: number; y: number }>({
     x: 0,
     y: 0,
   });
 
   const { startScratch, completeScratch } = useScratchStore();
+  const imageRef = useRef<HTMLImageElement | null>(null);
+
+  const drawGiftPattern = (ctx: CanvasRenderingContext2D) => {
+    const ribbonWidth = width * 0.1; // 리본 너비
+
+    // 배경 색상 (선물 상자 메인 색상)
+    ctx.fillStyle = "#D42626"; // 진한 빨간색
+    ctx.fillRect(0, 0, width, height);
+
+    // 리본 그리기
+    ctx.fillStyle = "#FFD700"; // 금색 리본
+
+    // 수직 리본
+    ctx.fillRect(width / 2 - ribbonWidth / 2, 0, ribbonWidth, height);
+
+    // 수평 리본
+    ctx.fillRect(0, height / 2 - ribbonWidth / 2, width, ribbonWidth);
+
+    // 리본 교차점에 원형 장식 추가
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, ribbonWidth * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 리본 테두리 효과
+    ctx.strokeStyle = "#FFB700";
+    ctx.lineWidth = 2;
+
+    // 수직 리본 테두리
+    ctx.strokeRect(width / 2 - ribbonWidth / 2, 0, ribbonWidth, height);
+
+    // 수평 리본 테두리
+    ctx.strokeRect(0, height / 2 - ribbonWidth / 2, width, ribbonWidth);
+
+    // 표면 텍스처 효과 추가
+    for (let i = 0; i < width; i += 20) {
+      for (let j = 0; j < height; j += 20) {
+        if ((i + j) % 40 === 0) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+          ctx.fillRect(i, j, 10, 10);
+        }
+      }
+    }
+
+    // 광택 효과 추가
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 0.1)");
+    gradient.addColorStop(0.5, "rgba(255, 255, 255, 0)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0.1)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  };
+
+  const preloadImage = () => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      imageRef.current = img;
+      setIsImageLoaded(true);
+      initializeCanvas();
+    };
+    img.onerror = () => {
+      console.error("Error loading image:", imageUrl);
+      img.src = "/api/placeholder/400/300";
+    };
+    img.src = imageUrl;
+  };
+
+  const initializeCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx || !imageRef.current) return;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.drawImage(imageRef.current, 0, 0, width, height);
+
+    // 선물 상자 패턴 그리기
+    drawGiftPattern(ctx);
+
+    ctx.globalCompositeOperation = "destination-out";
+  };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const setupCanvas = () => {
-      canvas.width = width;
-      canvas.height = height;
-      ctx.clearRect(0, 0, width, height);
+    const handleResize = () => {
+      const screenWidth = window.innerWidth;
+      if (screenWidth < 500) {
+        const newWidth = Math.min(screenWidth - 40, initialWidth);
+        const ratio = newWidth / initialWidth;
+        const newHeight = initialHeight * ratio;
+        setWidth(newWidth);
+        setHeight(newHeight);
+      } else {
+        setWidth(initialWidth);
+        setHeight(initialHeight);
+      }
     };
 
-    const drawLayers = () => {
-      const image = new Image();
-      image.crossOrigin = "anonymous";
-      image.src = imageUrl;
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [initialWidth, initialHeight]);
 
-      image.onload = () => {
-        ctx.clearRect(0, 0, width, height);
-        ctx.globalCompositeOperation = "source-over";
-        ctx.drawImage(image, 0, 0, width, height);
-        ctx.globalCompositeOperation = "source-over";
-        ctx.fillStyle = "#FFA500";
-        ctx.fillRect(0, 0, width, height);
-        ctx.globalCompositeOperation = "destination-out";
-      };
-
-      image.onerror = (e) => {
-        console.error("Error loading image:", e);
-      };
-    };
-
-    setupCanvas();
-    drawLayers();
+  useEffect(() => {
+    preloadImage();
   }, [imageUrl, width, height]);
 
   const calculateScratchedPercentage = () => {
@@ -76,10 +156,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     const totalPixels = pixels.length / 4;
 
     for (let i = 0; i < pixels.length; i += 4) {
-      const alpha = pixels[i + 3];
-      if (alpha < 128) {
-        transparentPixels++;
-      }
+      if (pixels[i + 3] < 128) transparentPixels++;
     }
 
     return (transparentPixels / totalPixels) * 100;
@@ -87,68 +164,64 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
   const revealComplete = () => {
     const canvas = canvasRef.current;
-    if (!canvas || isCompleted) return;
+    if (!canvas || isCompleted || !imageRef.current) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    setIsCompleted(true);
-    completeScratch(); // Update global state
+    setIsRevealing(true);
 
-    // 현재 캔버스의 스크래치 상태 저장
-    const scratchMask = ctx.getImageData(0, 0, width, height);
+    const scratchMask = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-    // 이미지 로드
-    const image = new Image();
-    image.src = imageUrl;
+    const offscreenCanvas = document.createElement("canvas");
+    offscreenCanvas.width = canvas.width;
+    offscreenCanvas.height = canvas.height;
+    const offscreenCtx = offscreenCanvas.getContext("2d");
+    if (!offscreenCtx) return;
 
-    let progress = 0;
-    const animationDuration = 800;
-    const startTime = performance.now();
+    offscreenCtx.drawImage(imageRef.current, 0, 0, canvas.width, canvas.height);
+    const backgroundImage = offscreenCtx.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
 
+    let startTime: number;
     const animate = (currentTime: number) => {
+      if (!startTime) startTime = currentTime;
       const elapsed = currentTime - startTime;
-      progress = Math.min(elapsed / animationDuration, 1);
+      const progress = Math.min(elapsed / ANIMATION_DURATION, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
 
-      // 캔버스 초기화
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(backgroundImage, 0, 0);
 
-      // 배경 이미지 그리기
-      ctx.globalCompositeOperation = "source-over";
-      ctx.drawImage(image, 0, 0, width, height);
+      const overlayData = ctx.createImageData(canvas.width, canvas.height);
 
-      // 오렌지색 오버레이 그리기 (페이드아웃 적용)
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = `rgba(255, 165, 0, ${1 - progress})`;
-      ctx.fillRect(0, 0, width, height);
-
-      // 스크래치 마스크 적용
-      ctx.globalCompositeOperation = "destination-out";
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const i = (y * width + x) * 4 + 3; // alpha channel index
-          if (scratchMask.data[i] < 128) {
-            ctx.clearRect(x, y, 1, 1);
-          }
+      for (let i = 0; i < scratchMask.data.length; i += 4) {
+        if (scratchMask.data[i + 3] < 128) {
+          overlayData.data[i + 3] = 0;
+        } else {
+          // 애니메이션 색상을 선물상자 색상으로 변경
+          overlayData.data[i] = 212; // R for #D42626
+          overlayData.data[i + 1] = 38; // G
+          overlayData.data[i + 2] = 38; // B
+          overlayData.data[i + 3] = Math.round(255 * (1 - eased));
         }
       }
 
+      ctx.globalCompositeOperation = "source-over";
+      ctx.putImageData(overlayData, 0, 0);
+
       if (progress < 1) {
         requestAnimationFrame(animate);
-      } else {
-        // 애니메이션 완료 후 배경 이미지만 표시
-        ctx.globalCompositeOperation = "source-over";
-        ctx.drawImage(image, 0, 0, width, height);
-        // 스크래치 마스크 다시 적용
-        ctx.globalCompositeOperation = "destination-out";
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const i = (y * width + x) * 4 + 3;
-            if (scratchMask.data[i] < 128) {
-              ctx.clearRect(x, y, 1, 1);
-            }
-          }
+        if (progress > 0.2 && !isCompleted) {
+          setIsCompleted(true);
+          completeScratch();
         }
+      } else {
+        setIsRevealing(false);
         onComplete?.();
       }
     };
@@ -180,10 +253,9 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
   const handleStart = (event: React.MouseEvent | React.TouchEvent) => {
     event.preventDefault();
-    if (isCompleted) return;
+    if (isCompleted || isRevealing || !isImageLoaded) return;
 
     startScratch();
-
     const coords = getCoordinates(event.nativeEvent);
     setIsDrawing(true);
     setLastPosition(coords);
@@ -191,7 +263,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
   const handleMove = (event: React.MouseEvent | React.TouchEvent) => {
     event.preventDefault();
-    if (!isDrawing || isCompleted) return;
+    if (!isDrawing || isCompleted || isRevealing || !isImageLoaded) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -201,6 +273,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
     ctx.lineWidth = 40;
     ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     ctx.beginPath();
     ctx.moveTo(lastPosition.x, lastPosition.y);
     ctx.lineTo(currentPosition.x, currentPosition.y);
@@ -220,7 +293,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
   return (
     <div
-      className="relative w-full max-w-lg mx-auto"
+      className="relative w-full max-w-lg mx-auto rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300"
       style={{
         width,
         height,
@@ -232,7 +305,9 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
         ref={canvasRef}
         width={width}
         height={height}
-        className="absolute top-0 left-0 w-full h-full touch-none"
+        className={`absolute top-0 left-0 w-full h-full touch-none ${
+          isRevealing || !isImageLoaded ? "pointer-events-none" : ""
+        }`}
         onMouseDown={handleStart}
         onMouseMove={handleMove}
         onMouseUp={handleEnd}
