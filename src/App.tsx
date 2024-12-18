@@ -13,15 +13,14 @@ import {
 } from "@mui/material";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { supabase } from "./lib/supabaseClient";
-
-interface Song {
+interface SongData {
   id: number;
   audio_url: string;
   image_url: string;
-  artist: {
+  artists: {
     name: string;
   };
-  original_song: {
+  original_songs: {
     title: string;
   };
 }
@@ -29,8 +28,9 @@ interface Song {
 const App = () => {
   const { isStarted, isRevealed, confirmWin } = useScratchStore();
   const [overlayOpacity, setOverlayOpacity] = useState(0);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [open, setOpen] = useState(false);
-  const [song, setSong] = useState<Song | null>(null);
+  const [song, setSong] = useState<SongData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasConfirmed, setHasConfirmed] = useState(false);
@@ -61,19 +61,13 @@ const App = () => {
 
         if (error) throw error;
 
-        console.log("Random song data:", data);
-
         if (data) {
-          const formattedSong: Song = {
+          const formattedSong: any = {
             id: data.id,
             audio_url: data.audio_url,
             image_url: data.image_url,
-            artist: {
-              name: data.artists.name,
-            },
-            original_song: {
-              title: data.original_songs.title,
-            },
+            artists: data.artists,
+            original_songs: data.original_songs,
           };
 
           setSong(formattedSong);
@@ -85,7 +79,6 @@ const App = () => {
         setIsLoading(false);
       }
     };
-
     fetchRandomSong();
   }, []);
 
@@ -115,7 +108,7 @@ const App = () => {
       try {
         await navigator.share({
           title: "크리스마스 캐롤 찾기",
-          text: `내가 찾은 크리스마스 캐롤: ${song.original_song.title} - ${song.artist.name}`,
+          text: `내가 찾은 크리스마스 캐롤: ${song.original_songs.title} - ${song.artists.name}`,
           url: window.location.href,
         });
       } catch (error) {
@@ -171,11 +164,22 @@ const App = () => {
               <h1 className="text-3xl font-bold mb-2 text-white">
                 {!isRevealed ? "선물이 도착했어요!" : "메리 크리스마스! 🎄"}
               </h1>
-              <p className="text-blue-200">
-                {!isRevealed
-                  ? "포장지를 뜯어서 나만의 캐롤을 뽑아보세요!"
-                  : `'${song.original_song.title} - ${song.artist.name}'이 당신의 크리스마스 캐롤이에요!`}
-              </p>
+              <>
+                {!isRevealed ? (
+                  <p className="text-blue-200">
+                    포장지를 뜯어서 나만의 캐롤을 뽑아보세요!
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-blue-200">
+                      {`'${song.original_songs.title} - ${song.artists.name}'`}
+                    </p>
+                    <p className="text-blue-200">
+                      나만의 크리스마스 캐롤이 완성됐어요!
+                    </p>
+                  </>
+                )}
+              </>
             </motion.div>
           )}
         </AnimatePresence>
@@ -189,10 +193,22 @@ const App = () => {
           transition={{ duration: 0.3 }}
           className="w-full"
         >
-          <div className="relative">
+          <div className="relative w-[260px] md:w-[400px] lg:w-[500px] mx-auto">
             <ScratchCard
-              width={400}
-              height={300}
+              width={
+                typeof window !== "undefined" && window.innerWidth < 768
+                  ? 260
+                  : typeof window !== "undefined" && window.innerWidth < 1024
+                  ? 320
+                  : 400
+              }
+              height={
+                typeof window !== "undefined" && window.innerWidth < 768
+                  ? 260
+                  : typeof window !== "undefined" && window.innerWidth < 1024
+                  ? 320
+                  : 400
+              }
               imageUrl={song.image_url}
               threshold={30}
             />
@@ -217,8 +233,9 @@ const App = () => {
                   color: "rgb(191 219 254)",
                   "&:hover": { color: "white" },
                 }}
+                onClick={() => setInfoOpen(true)}
               >
-                크리스마스 캐롤이란?
+                마이캐롤이 뭔가요?{" "}
               </Button>
 
               {isRevealed && (
@@ -266,7 +283,7 @@ const App = () => {
                     boxShadow: "0 2px 8px rgba(47, 155, 78, 0.3)",
                   }}
                   onClick={() => {
-                    handleShare();
+                    setOpen(true);
                   }}
                 >
                   {"공유하고 하나 더 뽑기"}
@@ -311,8 +328,8 @@ const App = () => {
               my: 2,
             }}
           >
-            친구에게 공유하면 하나 더 뽑을 수 있어요.{"\n"}지금 바로
-            자랑해보세요!
+            <div>친구에게 공유하면 하나 더 뽑을 수 있어요.</div>
+            <div>지금 바로 자랑해보세요!</div>
           </DialogContentText>
         </DialogContent>
         <DialogActions
@@ -358,6 +375,79 @@ const App = () => {
             }}
           >
             공유하기
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            backgroundColor: "#1a365d",
+            color: "white",
+            backgroundImage: "linear-gradient(to bottom, #1a365d, #2d3748)",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: "white",
+            textAlign: "center",
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+            pt: 4,
+          }}
+        >
+          마이캐롤 소개 🎄
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText
+            sx={{
+              color: "rgb(191 219 254)",
+              textAlign: "center",
+              my: 2,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <div style={{ gap: 4 }}>
+              <div>우리 2024년 연말을 맞아,</div>
+              <div>소중한 사람들에게 마음을 전해봐요.</div>
+            </div>
+            <div style={{ gap: 4 }}>
+              <div>다양한 크리스마스 캐롤을</div>
+              <div>다양한 가수의 목소리로 들으면 좋겠다고 생각했어요.</div>
+            </div>
+            <div style={{ marginTop: "1rem" }}>Merry Christmas ~</div>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            justifyContent: "center",
+            padding: "16px 24px",
+          }}
+        >
+          <Button
+            onClick={() => setInfoOpen(false)}
+            sx={{
+              color: "white",
+              borderRadius: "12px",
+              py: 1.5,
+              px: 4,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              "&:hover": {
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
+            }}
+          >
+            닫기
           </Button>
         </DialogActions>
       </Dialog>

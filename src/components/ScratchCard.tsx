@@ -20,6 +20,8 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   height: initialHeight = 300,
   onComplete,
   threshold = 20,
+  // songTitle = "테스트 제목",
+  // artistName = "테스트 아티스트",
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(initialWidth);
