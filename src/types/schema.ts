@@ -1,4 +1,4 @@
-// types/index.ts
+// types/schema.ts
 export interface User {
   id: string;
   fingerprint: string;
@@ -24,10 +24,8 @@ export interface Song {
   id: number;
   audio_url: string;
   image_url: string;
-  artist_id: number;
-  original_song_id: number;
-  artists: Artist;
-  original_songs: OriginalSong;
+  artist_name: string;
+  song_title: string;
 }
 
 export interface Scratch {

@@ -4,11 +4,7 @@ export interface ScratchHistory {
   song: {
     id: number;
     image_url: string;
-    artists: {
-      name: string;
-    };
-    original_songs: {
-      title: string;
-    };
+    artist_name: string;
+    song_title: string;
   };
 }

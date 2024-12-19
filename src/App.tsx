@@ -17,30 +17,24 @@ import { identifyUser } from "./utils/userIdentification";
 import { User } from "./types/schema";
 import ScratchHistoryComponent from "./components/ScratchHistory";
 import { ScratchHistory } from "./types/customType";
+import WaitingCard from "./components/WatingCard";
 
-interface SongResponse {
+interface SupabaseResponse {
   id: number;
   audio_url: string;
   image_url: string;
-  artists: {
-    name: string;
-  }[]; // Supabase가 배열로 반환
-  original_songs: {
-    title: string;
-  }[]; // Supabase가 배열로 반환
+  artist_name: string; // 변경
+  song_title: string; // 변경
 }
 
 interface SongData {
   id: number;
   audio_url: string;
   image_url: string;
-  artists: {
-    name: string;
-  };
-  original_songs: {
-    title: string;
-  };
+  artist_name: string; // 변경
+  song_title: string; // 변경
 }
+export const WAITING_TIME = 1 * 1 * 10 * 1000;
 
 const App = () => {
   const { isStarted, isRevealed, confirmWin } = useScratchStore();
@@ -55,6 +49,9 @@ const App = () => {
   const [userLoading, setUserLoding] = useState(true);
   const [scratchHistory, setScratchHistory] = useState<ScratchHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [selectedHistory, setSelectedHistory] = useState<ScratchHistory | null>(
+    null
+  );
 
   useEffect(() => {
     const initUser = async () => {
@@ -84,12 +81,8 @@ const App = () => {
             songs (
               id,
               image_url,
-              artists!inner (
-                name
-              ),
-              original_songs!inner (
-                title
-              )
+              artist_name,
+              song_title
             )
           `
           )
@@ -106,12 +99,8 @@ const App = () => {
             song: {
               id: item.songs.id,
               image_url: item.songs.image_url,
-              artists: {
-                name: item.songs.artists.name,
-              },
-              original_songs: {
-                title: item.songs.original_songs.title,
-              },
+              artist_name: item.songs.artist_name, // 변경된 부분
+              song_title: item.songs.song_title, // 변경된 부분
             },
           })
         );
@@ -129,7 +118,17 @@ const App = () => {
     }
   }, [currentUser?.id]);
 
-  const { playAudio } = useAudioPlayer(song?.audio_url || "");
+  const { playAudio, stopAudio, audioState } = useAudioPlayer(
+    song?.audio_url || ""
+  );
+
+  const handlePlayPause = async () => {
+    if (audioState.isPlaying) {
+      stopAudio();
+    } else {
+      await playAudio();
+    }
+  };
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -153,61 +152,73 @@ const App = () => {
           const scratchedSongIds =
             scratchedSongs?.map((scratch) => scratch.song_id) || [];
 
-          // 3. 랜덤한 오프셋 생성 (PostgreSQL의 random() 함수 사용)
-          const randomOffset = Math.floor(Math.random() * count);
-
-          // 4. 안 들은 곡이 있다면 그 중에서, 없다면 전체 중에서 선택
-          const query = supabase.from("songs").select(`
-              id,
-              audio_url,
-              image_url,
-              artists (
-                name
-              ),
-              original_songs (
-                title
+          // 3. 랜덤한 오프셋 생성
+          const remainingSongs = count - scratchedSongIds.length;
+          if (remainingSongs <= 0) {
+            // 모든 곡을 들었다면 전체 곡에서 랜덤 선택
+            const randomOffset = Math.floor(Math.random() * count);
+            const { data: songs, error: songError } = await supabase
+              .from("songs")
+              .select(
+                `
+    id,
+    audio_url,
+    image_url,
+    artist_name,
+    song_title
+  `
               )
-            `);
+              .range(randomOffset, randomOffset);
 
-          // 스크래치하지 않은 곡이 있을 경우에만 필터 적용
-          if (scratchedSongIds.length < count) {
-            query.not(
-              "id",
-              "in",
-              scratchedSongIds.length > 0
-                ? `(${scratchedSongIds.join(",")})`
-                : "(0)"
-            );
-          }
+            if (songError) throw songError;
+            if (!songs || songs.length === 0) throw new Error("No song found");
 
-          const { data: selectedSong, error: songError } = await query
-            .limit(1)
-            .range(randomOffset, randomOffset)
-            .single();
-
-          if (songError) throw songError;
-
-          if (selectedSong) {
-            const songResponse = selectedSong as SongResponse;
-            console.log("Selected song:", songResponse);
-
+            const rawSong = songs[0] as SupabaseResponse;
             const formattedSong: SongData = {
-              id: songResponse.id,
-              audio_url: songResponse.audio_url,
-              image_url: songResponse.image_url,
-              artists: {
-                name: songResponse.artists[0]?.name || "",
-              },
-              original_songs: {
-                title: songResponse.original_songs[0]?.title || "",
-              },
+              id: rawSong.id,
+              audio_url: rawSong.audio_url,
+              image_url: rawSong.image_url,
+              artist_name: rawSong.artist_name,
+              song_title: rawSong.song_title,
             };
+            console.log("formattedSong : ", formattedSong);
+            setSong(formattedSong);
+          } else {
+            // 아직 안 들은 곡이 있다면 그 중에서 선택
+            const { data: songs, error: songError } = await supabase
+              .from("songs")
+              .select(
+                `
+    id,
+    audio_url,
+    image_url,
+    artist_name,
+    song_title
+  `
+              )
+              .not("id", "in", `(${scratchedSongIds.join(",")})`)
+              .order("id", { ascending: true });
 
+            if (songError) throw songError;
+            if (!songs || songs.length === 0) throw new Error("No song found");
+
+            // 클라이언트 사이드에서 랜덤하게 하나 선택
+            const randomIndex = Math.floor(Math.random() * songs.length);
+            const rawSong = songs[randomIndex] as SupabaseResponse;
+            const formattedSong: SongData = {
+              id: rawSong.id,
+              audio_url: rawSong.audio_url,
+              image_url: rawSong.image_url,
+              artist_name: rawSong.artist_name,
+              song_title: rawSong.song_title,
+            };
+            console.log("formattedSong : ", formattedSong);
             setSong(formattedSong);
           }
         } catch (err) {
           console.error("Error details:", err);
           setError(err instanceof Error ? err.message : "Failed to fetch song");
+          throw err;
         } finally {
           setIsLoading(false);
         }
@@ -216,51 +227,6 @@ const App = () => {
       fetchRandomSong();
     }
   }, [currentUser?.id]);
-
-  useEffect(() => {
-    const fetchRandomSong = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("songs")
-          .select(
-            `
-            id,
-            audio_url,
-            image_url,
-            artists (
-              name
-            ),
-            original_songs (
-              title
-            )
-          `
-          )
-          .order("id", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          const formattedSong: any = {
-            id: data.id,
-            audio_url: data.audio_url,
-            image_url: data.image_url,
-            artists: data.artists,
-            original_songs: data.original_songs,
-          };
-
-          setSong(formattedSong);
-        }
-      } catch (err) {
-        console.error("Error details:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch song");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchRandomSong();
-  }, []);
 
   useEffect(() => {
     if (isRevealed && song) {
@@ -286,10 +252,11 @@ const App = () => {
 
     if (navigator.share) {
       try {
+        const shareMessage = `2024년도 저물어가네요.\n마음이 편안한 연말을 보내셨음 좋겠어요.\n크리스마스 선물을 준비했어요.\n언제나 응원할게요.\n\n${window.location.href}`;
+
         await navigator.share({
-          title: "크리스마스 캐롤 찾기",
-          text: `내가 찾은 크리스마스 캐롤: ${song.original_songs.title} - ${song.artists.name}`,
-          url: window.location.href,
+          text: shareMessage,
+          // title과 url을 제거하고 text에만 포함시킴
         });
       } catch (error) {
         console.log("공유 실패:", error);
@@ -299,6 +266,17 @@ const App = () => {
     }
     setOpen(false);
   };
+  const checkWaitingTime = (lastScratchTime: string): boolean => {
+    const lastTime = new Date(lastScratchTime).getTime();
+    const currentTime = new Date().getTime();
+
+    const waitTime = WAITING_TIME;
+    return currentTime - lastTime < waitTime;
+  };
+
+  const isWaiting =
+    scratchHistory.length > 0 &&
+    checkWaitingTime(scratchHistory[0].scratched_at);
 
   if (isLoading) {
     return (
@@ -342,13 +320,13 @@ const App = () => {
       </div>
 
       {/* Debug 정보 표시 - 개발 중에만 사용 */}
-      <div className="absolute top-4 right-4 bg-black/50 text-white p-4 rounded-lg text-sm">
+      {/* <div className="absolute top-4 right-4 bg-black/50 text-white p-4 rounded-lg text-sm">
         <p>User ID: {currentUser?.id}</p>
         <p>Fingerprint: {currentUser?.fingerprint?.slice(0, 8)}...</p>
         <p>
           Created: {new Date(currentUser?.created_at || 0).toLocaleString()}
         </p>
-      </div>
+      </div> */}
 
       <motion.div
         className="fixed inset-0 bg-[#1a365d] pointer-events-none"
@@ -358,7 +336,7 @@ const App = () => {
 
       <div className="relative w-full max-w-lg mx-auto px-4 py-8 flex flex-col items-center">
         <AnimatePresence mode="wait">
-          {(!isStarted || isRevealed) && (
+          {(!isStarted || isRevealed || isWaiting) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -367,24 +345,55 @@ const App = () => {
               className="text-center mb-8"
             >
               <h1 className="text-3xl font-bold mb-2 text-white">
-                {!isRevealed ? "선물이 도착했어요!" : "메리 크리스마스! 🎄"}
+                {isWaiting
+                  ? "다음 선물은 아직이에요!"
+                  : !isRevealed
+                  ? "선물이 도착했어요!"
+                  : "메리 크리스마스! 🎄"}
               </h1>
-              <>
-                {!isRevealed ? (
-                  <p className="text-blue-200">
-                    포장지를 뜯어서 나만의 캐롤을 뽑아보세요!
+              {isWaiting ? (
+                <div className="text-blue-200">
+                  <p>
+                    {(() => {
+                      const totalSeconds = WAITING_TIME / 1000;
+                      const totalMinutes = totalSeconds / 60;
+                      const totalHours = totalMinutes / 60;
+
+                      if (totalHours >= 1) {
+                        return `${Math.floor(
+                          totalHours
+                        )}시간마다 하나씩 받을 수 있어요.`;
+                      } else if (totalMinutes >= 1) {
+                        return `${Math.floor(
+                          totalMinutes
+                        )}분마다 하나씩 받을 수 있어요.`;
+                      } else {
+                        return `${Math.floor(
+                          totalSeconds
+                        )}초마다 하나씩 받을 수 있어요.`;
+                      }
+                    })()}
                   </p>
-                ) : (
-                  <>
+                  <p>공유하면 바로 뽑을 수도 있답니다!</p>
+                </div>
+              ) : (
+                <>
+                  {!isRevealed ? (
                     <p className="text-blue-200">
-                      {`'${song.original_songs.title} - ${song.artists.name}'`}
+                      포장지를 뜯어서 나만의 캐롤을 뽑아보세요!
                     </p>
-                    <p className="text-blue-200">
-                      나만의 크리스마스 캐롤이 완성됐어요!
-                    </p>
-                  </>
-                )}
-              </>
+                  ) : (
+                    <>
+                      <p className="text-blue-200">
+                        {`'${song.song_title} - ${song.artist_name}'`}
+                      </p>
+                      <p className="text-blue-200">
+                        나만의 크리스마스 캐롤이 완성됐어요!
+                      </p>
+                    </>
+                  )}
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -399,31 +408,65 @@ const App = () => {
           className="w-full"
         >
           <div className="relative w-[260px] md:w-[400px] lg:w-[500px] mx-auto">
-            <ScratchCard
-              width={
-                typeof window !== "undefined" && window.innerWidth < 768
-                  ? 260
-                  : typeof window !== "undefined" && window.innerWidth < 1024
-                  ? 320
-                  : 400
-              }
-              height={
-                typeof window !== "undefined" && window.innerWidth < 768
-                  ? 260
-                  : typeof window !== "undefined" && window.innerWidth < 1024
-                  ? 320
-                  : 400
-              }
-              imageUrl={song.image_url}
-              threshold={20}
-              songId={song.id}
-              userId={currentUser.id}
-            />
+            {isWaiting ? (
+              <WaitingCard
+                lastScratchTime={scratchHistory[0].scratched_at}
+                width={
+                  typeof window !== "undefined" && window.innerWidth < 768
+                    ? 260
+                    : typeof window !== "undefined" && window.innerWidth < 1024
+                    ? 320
+                    : 400
+                }
+                height={
+                  typeof window !== "undefined" && window.innerWidth < 768
+                    ? 260
+                    : typeof window !== "undefined" && window.innerWidth < 1024
+                    ? 320
+                    : 400
+                }
+                imageUrl={
+                  selectedHistory?.song.image_url ||
+                  scratchHistory[0].song.image_url
+                }
+                songTitle={
+                  selectedHistory?.song.song_title ||
+                  scratchHistory[0].song.song_title
+                }
+                artistName={
+                  selectedHistory?.song.artist_name ||
+                  scratchHistory[0].song.artist_name
+                }
+                isPlaying={audioState.isPlaying}
+                onPlayPause={handlePlayPause}
+              />
+            ) : (
+              <ScratchCard
+                width={
+                  typeof window !== "undefined" && window.innerWidth < 768
+                    ? 260
+                    : typeof window !== "undefined" && window.innerWidth < 1024
+                    ? 320
+                    : 400
+                }
+                height={
+                  typeof window !== "undefined" && window.innerWidth < 768
+                    ? 260
+                    : typeof window !== "undefined" && window.innerWidth < 1024
+                    ? 320
+                    : 400
+                }
+                imageUrl={song.image_url}
+                threshold={20}
+                songId={song.id}
+                userId={currentUser.id}
+              />
+            )}
           </div>
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {(!isStarted || isRevealed) && (
+          {(!isStarted || isRevealed || isWaiting) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -445,7 +488,32 @@ const App = () => {
                 마이캐롤이 뭔가요?{" "}
               </Button>
 
-              {isRevealed && (
+              {isWaiting ? (
+                // 대기 중일 때는 항상 공유 버튼 표시
+                <Button
+                  variant="contained"
+                  color="success"
+                  fullWidth
+                  sx={{
+                    borderRadius: "14px",
+                    py: 2,
+                    fontSize: "1.125rem",
+                    fontWeight: "bold",
+                    textTransform: "none",
+                    backgroundColor: "#2F9B4E",
+                    "&:hover": {
+                      backgroundColor: "#268642",
+                    },
+                    boxShadow: "0 2px 8px rgba(47, 155, 78, 0.3)",
+                  }}
+                  onClick={() => {
+                    setOpen(true);
+                  }}
+                >
+                  {"공유하고 하나 더 뽑기"}
+                </Button>
+              ) : isRevealed && !hasConfirmed ? (
+                // 처음 공개됐을 때는 확인 버튼 표시
                 <Button
                   variant="contained"
                   color="success"
@@ -471,8 +539,8 @@ const App = () => {
                 >
                   {"확인했어요"}
                 </Button>
-              )}
-              {hasConfirmed && (
+              ) : hasConfirmed ? (
+                // 확인 후에는 공유 버튼 표시
                 <Button
                   variant="contained"
                   color="success"
@@ -495,18 +563,21 @@ const App = () => {
                 >
                   {"공유하고 하나 더 뽑기"}
                 </Button>
-              )}
+              ) : null}
             </motion.div>
           )}
         </AnimatePresence>
-
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           className="w-full mt-8"
         >
-          <ScratchHistoryComponent history={scratchHistory} />
+          <ScratchHistoryComponent
+            history={scratchHistory}
+            onSelectHistory={setSelectedHistory}
+            selectedId={selectedHistory?.id}
+          />
         </motion.div>
       </div>
 
