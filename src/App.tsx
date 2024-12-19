@@ -210,7 +210,7 @@ const App = () => {
                   : 400
               }
               imageUrl={song.image_url}
-              threshold={30}
+              threshold={20}
             />
           </div>
         </motion.div>
@@ -417,12 +417,12 @@ const App = () => {
             }}
           >
             <div style={{ gap: 4 }}>
-              <div>우리 2024년 연말을 맞아,</div>
+              <div>2024년 연말을 맞아</div>
               <div>소중한 사람들에게 마음을 전해봐요.</div>
             </div>
             <div style={{ gap: 4 }}>
-              <div>다양한 크리스마스 캐롤을</div>
-              <div>다양한 가수의 목소리로 들으면 좋겠다고 생각했어요.</div>
+              <div>크리스마스 캐롤을</div>
+              <div>다양한 가수 목소리로 듣고 싶었어요.</div>
             </div>
             <div style={{ marginTop: "1rem" }}>Merry Christmas ~</div>
           </DialogContentText>
