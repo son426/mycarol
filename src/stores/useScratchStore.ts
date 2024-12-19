@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { supabase } from "../lib/supabaseClient";
 
 interface ScratchState {
   totalAmount: number;
@@ -6,7 +7,7 @@ interface ScratchState {
   isStarted: boolean;
   isRevealed: boolean;
   startScratch: () => void;
-  completeScratch: () => void;
+  completeScratch: (userId: string, songId: number) => Promise<void>;
   confirmWin: () => void;
   resetScratch: () => void;
 }
@@ -19,8 +20,28 @@ export const useScratchStore = create<ScratchState>((set) => ({
 
   startScratch: () => set({ isStarted: true }),
 
-  completeScratch: () => set({ isRevealed: true }),
+  completeScratch: async (userId: string, songId: number) => {
+    try {
+      const { error } = await supabase.from("scratches").insert([
+        {
+          user_id: userId,
+          song_id: songId,
+        },
+      ]);
 
+      if (error) {
+        console.error("Error recording scratch:", error);
+        throw error;
+      }
+
+      set({ isRevealed: true });
+    } catch (error) {
+      console.error("Failed to record scratch:", error);
+      // Still set isRevealed to true even if recording fails
+      // to not block user experience
+      set({ isRevealed: true });
+    }
+  },
   confirmWin: () =>
     set((state) => ({
       totalAmount: state.totalAmount + (state.currentAmount || 0),

@@ -8,8 +8,8 @@ interface ScratchCardProps {
   height?: number;
   onComplete?: () => void;
   threshold?: number;
-  songTitle?: string;
-  artistName?: string;
+  userId: string;
+  songId: number;
 }
 
 const ANIMATION_DURATION = 1200;
@@ -20,8 +20,8 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   height: initialHeight = 300,
   onComplete,
   threshold = 20,
-  // songTitle = "테스트 제목",
-  // artistName = "테스트 아티스트",
+  userId,
+  songId,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(initialWidth);
@@ -220,7 +220,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
         requestAnimationFrame(animate);
         if (progress > 0.2 && !isCompleted) {
           setIsCompleted(true);
-          completeScratch();
         }
       } else {
         setIsRevealing(false);
@@ -230,6 +229,13 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
     requestAnimationFrame(animate);
   };
+
+  useEffect(() => {
+    if (isCompleted) {
+      console.log("completeScratch : ", userId, songId);
+      completeScratch(userId, songId);
+    }
+  }, [isCompleted]);
 
   const getCoordinates = (
     event: MouseEvent | TouchEvent

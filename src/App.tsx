@@ -13,6 +13,10 @@ import {
 } from "@mui/material";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { supabase } from "./lib/supabaseClient";
+import { identifyUser } from "./utils/userIdentification";
+import { User } from "./types/schema";
+import ScratchHistoryComponent from "./components/ScratchHistory";
+import { ScratchHistory } from "./types/customType";
 interface SongData {
   id: number;
   audio_url: string;
@@ -34,6 +38,65 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasConfirmed, setHasConfirmed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userLoading, setUserLoding] = useState(true);
+  const [scratchHistory, setScratchHistory] = useState<ScratchHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchScratchHistory = async (userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from("scratches")
+          .select(
+            `
+            id,
+            scratched_at,
+            song:songs (
+              id,
+              image_url,
+              artists (
+                name
+              ),
+              original_songs (
+                title
+              )
+            )
+          `
+          )
+          .eq("user_id", userId)
+          .order("scratched_at", { ascending: false });
+
+        if (error) throw error;
+
+        setScratchHistory(data || []);
+      } catch (error) {
+        console.error("Error fetching scratch history:", error);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    if (currentUser?.id) {
+      fetchScratchHistory(currentUser.id);
+    }
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    const initUser = async () => {
+      try {
+        const user = await identifyUser();
+        console.log("Identified user:", user);
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Failed to identify user:", error);
+      } finally {
+        setUserLoding(false);
+      }
+    };
+
+    initUser();
+  }, []);
 
   const { playAudio } = useAudioPlayer(song?.audio_url || "");
 
@@ -123,7 +186,23 @@ const App = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
-        <div className="text-white">Loading...</div>
+        <div className="text-white">노래 로딩중...</div>
+      </div>
+    );
+  }
+
+  if (userLoading || !currentUser) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
+        <div className="text-white">유저 식별중...</div>
+      </div>
+    );
+  }
+
+  if (historyLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
+        <div className="text-white">히스토리 로딩중</div>
       </div>
     );
   }
@@ -143,6 +222,15 @@ const App = () => {
         <Snowflake className="absolute top-20 right-[15%] text-white/20 w-6 h-6" />
         <Snowflake className="absolute bottom-20 left-[20%] text-white/20 w-10 h-10" />
         <Snowflake className="absolute bottom-40 right-[25%] text-white/20 w-8 h-8" />
+      </div>
+
+      {/* Debug 정보 표시 - 개발 중에만 사용 */}
+      <div className="absolute top-4 right-4 bg-black/50 text-white p-4 rounded-lg text-sm">
+        <p>User ID: {currentUser?.id}</p>
+        <p>Fingerprint: {currentUser?.fingerprint?.slice(0, 8)}...</p>
+        <p>
+          Created: {new Date(currentUser?.created_at || 0).toLocaleString()}
+        </p>
       </div>
 
       <motion.div
@@ -211,6 +299,8 @@ const App = () => {
               }
               imageUrl={song.image_url}
               threshold={20}
+              songId={song.id}
+              userId={currentUser.id}
             />
           </div>
         </motion.div>
@@ -292,6 +382,15 @@ const App = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="w-full mt-8"
+        >
+          <ScratchHistoryComponent history={scratchHistory} />
+        </motion.div>
       </div>
 
       <Dialog
