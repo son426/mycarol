@@ -101,6 +101,86 @@ const App = () => {
   const { playAudio } = useAudioPlayer(song?.audio_url || "");
 
   useEffect(() => {
+    if (currentUser?.id) {
+      const fetchRandomSong = async () => {
+        try {
+          // 1. 전체 곡 수를 먼저 가져옵니다
+          const { count } = await supabase
+            .from("songs")
+            .select("*", { count: "exact", head: true });
+
+          if (!count) throw new Error("No songs available");
+
+          // 2. 사용자가 이미 스크래치한 곡들의 ID를 가져옵니다
+          const { data: scratchedSongs, error: scratchError } = await supabase
+            .from("scratches")
+            .select("song_id")
+            .eq("user_id", currentUser?.id);
+
+          if (scratchError) throw scratchError;
+
+          const scratchedSongIds =
+            scratchedSongs?.map((scratch) => scratch.song_id) || [];
+
+          // 3. 랜덤한 오프셋 생성 (PostgreSQL의 random() 함수 사용)
+          const randomOffset = Math.floor(Math.random() * count);
+
+          // 4. 안 들은 곡이 있다면 그 중에서, 없다면 전체 중에서 선택
+          const query = supabase.from("songs").select(`
+              id,
+              audio_url,
+              image_url,
+              artists (
+                name
+              ),
+              original_songs (
+                title
+              )
+            `);
+
+          // 스크래치하지 않은 곡이 있을 경우에만 필터 적용
+          if (scratchedSongIds.length < count) {
+            query.not(
+              "id",
+              "in",
+              scratchedSongIds.length > 0
+                ? `(${scratchedSongIds.join(",")})`
+                : "(0)"
+            );
+          }
+
+          const { data: selectedSong, error: songError } = await query
+            .limit(1)
+            .range(randomOffset, randomOffset)
+            .single();
+
+          if (songError) throw songError;
+
+          if (selectedSong) {
+            console.log("Selected song:", selectedSong); // 디버깅용
+            const formattedSong: SongData = {
+              id: selectedSong.id,
+              audio_url: selectedSong.audio_url,
+              image_url: selectedSong.image_url,
+              artists: selectedSong.artists,
+              original_songs: selectedSong.original_songs,
+            };
+
+            setSong(formattedSong);
+          }
+        } catch (err) {
+          console.error("Error details:", err);
+          setError(err instanceof Error ? err.message : "Failed to fetch song");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchRandomSong();
+    }
+  }, [currentUser?.id]);
+
+  useEffect(() => {
     const fetchRandomSong = async () => {
       try {
         const { data, error } = await supabase

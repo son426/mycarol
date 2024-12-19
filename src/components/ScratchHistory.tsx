@@ -1,5 +1,6 @@
 import React from "react";
 import { Clock } from "lucide-react";
+import { ScratchHistory } from "../types/customType";
 
 interface ScratchHistoryProps {
   history: ScratchHistory[];
