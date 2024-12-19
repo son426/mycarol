@@ -17,6 +17,19 @@ import { identifyUser } from "./utils/userIdentification";
 import { User } from "./types/schema";
 import ScratchHistoryComponent from "./components/ScratchHistory";
 import { ScratchHistory } from "./types/customType";
+
+interface SongResponse {
+  id: number;
+  audio_url: string;
+  image_url: string;
+  artists: {
+    name: string;
+  }[]; // Supabase가 배열로 반환
+  original_songs: {
+    title: string;
+  }[]; // Supabase가 배열로 반환
+}
+
 interface SongData {
   id: number;
   audio_url: string;
@@ -44,45 +57,6 @@ const App = () => {
   const [historyLoading, setHistoryLoading] = useState(true);
 
   useEffect(() => {
-    const fetchScratchHistory = async (userId: string) => {
-      try {
-        const { data, error } = await supabase
-          .from("scratches")
-          .select(
-            `
-            id,
-            scratched_at,
-            song:songs (
-              id,
-              image_url,
-              artists (
-                name
-              ),
-              original_songs (
-                title
-              )
-            )
-          `
-          )
-          .eq("user_id", userId)
-          .order("scratched_at", { ascending: false });
-
-        if (error) throw error;
-
-        setScratchHistory(data || []);
-      } catch (error) {
-        console.error("Error fetching scratch history:", error);
-      } finally {
-        setHistoryLoading(false);
-      }
-    };
-
-    if (currentUser?.id) {
-      fetchScratchHistory(currentUser.id);
-    }
-  }, [currentUser?.id]);
-
-  useEffect(() => {
     const initUser = async () => {
       try {
         const user = await identifyUser();
@@ -97,6 +71,63 @@ const App = () => {
 
     initUser();
   }, []);
+
+  useEffect(() => {
+    const fetchScratchHistory = async (userId: string) => {
+      try {
+        const { data: rawData, error } = await supabase
+          .from("scratches")
+          .select(
+            `
+            id,
+            scratched_at,
+            songs (
+              id,
+              image_url,
+              artists!inner (
+                name
+              ),
+              original_songs!inner (
+                title
+              )
+            )
+          `
+          )
+          .eq("user_id", userId)
+          .order("scratched_at", { ascending: false });
+
+        if (error) throw error;
+
+        // 데이터 변환
+        const formattedHistory: ScratchHistory[] = (rawData || []).map(
+          (item: any) => ({
+            id: item.id,
+            scratched_at: item.scratched_at,
+            song: {
+              id: item.songs.id,
+              image_url: item.songs.image_url,
+              artists: {
+                name: item.songs.artists.name,
+              },
+              original_songs: {
+                title: item.songs.original_songs.title,
+              },
+            },
+          })
+        );
+
+        setScratchHistory(formattedHistory);
+      } catch (error) {
+        console.error("Error fetching scratch history:", error);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    if (currentUser?.id) {
+      fetchScratchHistory(currentUser.id);
+    }
+  }, [currentUser?.id]);
 
   const { playAudio } = useAudioPlayer(song?.audio_url || "");
 
@@ -157,13 +188,19 @@ const App = () => {
           if (songError) throw songError;
 
           if (selectedSong) {
-            console.log("Selected song:", selectedSong); // 디버깅용
+            const songResponse = selectedSong as SongResponse;
+            console.log("Selected song:", songResponse);
+
             const formattedSong: SongData = {
-              id: selectedSong.id,
-              audio_url: selectedSong.audio_url,
-              image_url: selectedSong.image_url,
-              artists: selectedSong.artists,
-              original_songs: selectedSong.original_songs,
+              id: songResponse.id,
+              audio_url: songResponse.audio_url,
+              image_url: songResponse.image_url,
+              artists: {
+                name: songResponse.artists[0]?.name || "",
+              },
+              original_songs: {
+                title: songResponse.original_songs[0]?.title || "",
+              },
             };
 
             setSong(formattedSong);
