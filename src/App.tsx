@@ -18,6 +18,9 @@ import { User } from "./types/schema";
 import { ScratchHistory } from "./types/customType";
 import WaitingCard from "./components/WatingCard";
 import RecentScratchList from "./components/RecentScratchList";
+import { LETTER_MESSAGES } from "./constants";
+import { useLoadingStore } from "./stores/useLoadingStore";
+import santaGIF from "./assets/santa.gif";
 
 interface SupabaseResponse {
   id: number;
@@ -35,7 +38,7 @@ interface SongData {
   song_title: string;
 }
 
-export const WAITING_TIME = 1 * 1 * 1 * 1000;
+export const WAITING_TIME = 1 * 1 * 0.1 * 1000;
 
 const App = () => {
   const { isStarted, isRevealed } = useScratchStore();
@@ -50,6 +53,11 @@ const App = () => {
   const [scratchHistory, setScratchHistory] = useState<ScratchHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [selectedHistory] = useState<ScratchHistory | null>(null);
+  const [letterOpen, setLetterOpen] = useState(false);
+  const [hasReadLetter, setHasReadLetter] = useState(false);
+  const [selectedLetter, setSelectedLetter] = useState(LETTER_MESSAGES[0]);
+
+  const isCardReady = useLoadingStore((state) => state.isCardReady);
 
   useEffect(() => {
     const initUser = async () => {
@@ -66,6 +74,13 @@ const App = () => {
 
     initUser();
   }, []);
+
+  useEffect(() => {
+    if (isRevealed) {
+      const randomIndex = Math.floor(Math.random() * LETTER_MESSAGES.length);
+      setSelectedLetter(LETTER_MESSAGES[randomIndex]);
+    }
+  }, [isRevealed]);
 
   useEffect(() => {
     const fetchScratchHistory = async (userId: string) => {
@@ -253,6 +268,13 @@ const App = () => {
     setOpen(false);
   };
 
+  console.log("isCardReady : ", isCardReady);
+
+  const handleLetterClose = () => {
+    setLetterOpen(false);
+    setHasReadLetter(true);
+  };
+
   const checkWaitingTime = (lastScratchTime: string): boolean => {
     const lastTime = new Date(lastScratchTime).getTime();
     const currentTime = new Date().getTime();
@@ -264,34 +286,38 @@ const App = () => {
     scratchHistory.length > 0 &&
     checkWaitingTime(scratchHistory[0].scratched_at);
 
-  if (isLoading) {
+  if (isLoading || userLoading || !currentUser || historyLoading || !song) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
-        <div className="text-white">노래 로딩중...</div>
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src={santaGIF}
+            alt="Loading..."
+            className="w-40 h-40 object-contain"
+          />
+          <div className="text-lg text-white font-medium tracking-wide">
+            선물이 오는 중이에요!
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (userLoading || !currentUser) {
+  if (error) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
-        <div className="text-white">유저 식별중...</div>
-      </div>
-    );
-  }
-
-  if (historyLoading) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
-        <div className="text-white">히스토리 로딩중</div>
-      </div>
-    );
-  }
-
-  if (error || !song) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
-        <div className="text-white">Error: {error || "No song found"}</div>
+      <div className="min-h-screen w-full flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-[#1a365d] to-[#2d3748]">
+        <div className="text-white text-center">
+          <p>에러가 발생했어요.</p>
+          <p>아래 링크로 문의주시면 바로 해결해드릴게요!</p>
+        </div>
+        <a
+          href="http://pf.kakao.com/_ztcLG/chat"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-yellow-300 hover:text-yellow-200 underline transition-colors"
+        >
+          카카오톡으로 문의하기
+        </a>
       </div>
     );
   }
@@ -447,34 +473,62 @@ const App = () => {
               className="mt-8 text-center w-full px-4"
             >
               {(isWaiting || isRevealed) && (
-                <Button
-                  variant="contained"
-                  color="success"
-                  fullWidth
-                  sx={{
-                    borderRadius: "14px",
-                    py: 2,
-                    fontSize: "1.125rem",
-                    fontWeight: "bold",
-                    textTransform: "none",
-                    backgroundColor: "#2F9B4E",
-                    "&:hover": {
-                      backgroundColor: "#268642",
-                    },
-                    boxShadow: "0 2px 8px rgba(47, 155, 78, 0.3)",
-                  }}
-                  onClick={() => {
-                    setOpen(true);
-                  }}
-                >
-                  하나 더 뽑기
-                </Button>
+                <>
+                  {isRevealed && !hasReadLetter ? (
+                    <Button
+                      variant="contained"
+                      color="success"
+                      fullWidth
+                      sx={{
+                        borderRadius: "14px",
+                        py: 2,
+                        fontSize: "1.125rem",
+                        fontWeight: "bold",
+                        textTransform: "none",
+                        backgroundColor: "#2F9B4E",
+                        "&:hover": {
+                          backgroundColor: "#268642",
+                        },
+                        boxShadow: "0 2px 8px rgba(47, 155, 78, 0.3)",
+                      }}
+                      onClick={() => {
+                        setLetterOpen(true);
+                      }}
+                    >
+                      편지도 준비했어요!
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="contained"
+                      color="success"
+                      fullWidth
+                      sx={{
+                        borderRadius: "14px",
+                        py: 2,
+                        fontSize: "1.125rem",
+                        fontWeight: "bold",
+                        textTransform: "none",
+                        backgroundColor: "#2F9B4E",
+                        "&:hover": {
+                          backgroundColor: "#268642",
+                        },
+                        boxShadow: "0 2px 8px rgba(47, 155, 78, 0.3)",
+                      }}
+                      onClick={() => {
+                        setOpen(true);
+                      }}
+                    >
+                      공유하기
+                    </Button>
+                  )}
+                </>
               )}
               <Button
                 variant="text"
                 sx={{
                   color: "rgb(191 219 254)",
                   "&:hover": { color: "white" },
+                  mt: 2,
                 }}
                 onClick={() => setInfoOpen(true)}
               >
@@ -494,6 +548,82 @@ const App = () => {
         </motion.div>
       </div>
 
+      {/* Letter Modal */}
+      <Dialog
+        open={letterOpen}
+        onClose={handleLetterClose}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            backgroundColor: "#1a365d",
+            color: "white",
+            backgroundImage: "linear-gradient(to bottom, #1a365d, #2d3748)",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: "white",
+            textAlign: "center",
+            fontSize: "1.3rem",
+            fontWeight: "bold",
+            pt: 4,
+          }}
+        >
+          {selectedLetter.title}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText
+            sx={{
+              color: "rgb(191 219 254)",
+              textAlign: "center",
+              my: 2,
+              display: "flex",
+              flexDirection: "column",
+              fontSize: {
+                xs: "0.875rem", // 모바일에서는 작은 크기
+                sm: "1rem", // 태블릿/데스크톱에서는 기본 크기
+              },
+              lineHeight: {
+                xs: 1.5,
+                sm: 1.75,
+              },
+            }}
+          >
+            {selectedLetter.content.map((line, index) => (
+              <div key={index}>{line}</div>
+            ))}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            justifyContent: "center",
+            padding: "16px 24px",
+          }}
+        >
+          <Button
+            onClick={handleLetterClose}
+            sx={{
+              color: "white",
+              borderRadius: "12px",
+              py: 1.5,
+              px: 4,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              "&:hover": {
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
+            }}
+          >
+            확인
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Share Modal */}
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
@@ -513,7 +643,7 @@ const App = () => {
           sx={{
             color: "white",
             textAlign: "center",
-            fontSize: "1.5rem",
+            fontSize: "1.3rem",
             fontWeight: "bold",
             pt: 4,
           }}
@@ -573,6 +703,7 @@ const App = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Info Modal */}
       <Dialog
         open={infoOpen}
         onClose={() => setInfoOpen(false)}
@@ -592,7 +723,7 @@ const App = () => {
           sx={{
             color: "white",
             textAlign: "center",
-            fontSize: "1.5rem",
+            fontSize: "1.3rem",
             fontWeight: "bold",
             pt: 4,
           }}
@@ -607,18 +738,28 @@ const App = () => {
               my: 2,
               display: "flex",
               flexDirection: "column",
+              fontSize: {
+                xs: "0.875rem", // 모바일에서는 작은 크기
+                sm: "1rem", // 태블릿/데스크톱에서는 기본 크기
+              },
+              lineHeight: {
+                xs: 1.5,
+                sm: 1.75,
+              },
               gap: 2,
             }}
           >
             <div style={{ gap: 4 }}>
-              <div>2024년 연말을 맞아</div>
-              <div>소중한 사람들에게 마음을 전해봐요.</div>
+              <div>올해는 유독 춥게 느껴져요.</div>
+              <div>캐롤을 듣는 순간만은 따뜻했으면 좋겠습니다.</div>
             </div>
             <div style={{ gap: 4 }}>
-              <div>크리스마스 캐롤을</div>
-              <div>다양한 가수 목소리로 듣고 싶었어요.</div>
+              <div>2024년 연말을 맞아</div>
+              <div>소중했던 사람들에게 마음을 전해보세요</div>
             </div>
-            <div style={{ marginTop: "1rem" }}>Merry Christmas ~</div>
+            <div style={{ gap: 4 }}>
+              <div>Merry Christmas ~</div>
+            </div>
           </DialogContentText>
         </DialogContent>
         <DialogActions

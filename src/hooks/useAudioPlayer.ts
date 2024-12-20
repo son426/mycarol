@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface AudioPlaybackState {
   isPlaying: boolean;
@@ -12,7 +12,6 @@ interface AudioPlayerHook {
   audioState: AudioPlaybackState;
 }
 
-// 오디오 커스텀 훅
 export const useAudioPlayer = (audioUrl: string): AudioPlayerHook => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioState, setAudioState] = useState<AudioPlaybackState>({
@@ -20,29 +19,48 @@ export const useAudioPlayer = (audioUrl: string): AudioPlayerHook => {
     hasError: false,
   });
 
+  // Audio element 초기화를 위한 별도의 effect
   useEffect(() => {
-    // 오디오 엘리먼트 생성
     const audio = new Audio(audioUrl);
     audio.preload = "auto";
+
+    // 오디오 이벤트 핸들러
+    const handleEnded = () => {
+      setAudioState((prev) => ({ ...prev, isPlaying: false }));
+    };
+
+    const handleError = () => {
+      setAudioState({
+        isPlaying: false,
+        hasError: true,
+        errorMessage: "오디오 재생 중 에러가 발생했습니다.",
+      });
+    };
+
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("error", handleError);
     audioRef.current = audio;
 
-    // Cleanup function
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("error", handleError);
+      audio.pause();
+      audio.src = "";
+      audioRef.current = null;
     };
   }, [audioUrl]);
 
-  const playAudio = async (): Promise<void> => {
+  const playAudio = useCallback(async (): Promise<void> => {
     try {
       if (audioRef.current) {
-        await audioRef.current.play();
-        setAudioState({
-          isPlaying: true,
-          hasError: false,
-        });
+        // 현재 재생 중인 경우 중복 재생 방지
+        if (!audioState.isPlaying) {
+          await audioRef.current.play();
+          setAudioState({
+            isPlaying: true,
+            hasError: false,
+          });
+        }
       }
     } catch (error) {
       setAudioState({
@@ -52,9 +70,9 @@ export const useAudioPlayer = (audioUrl: string): AudioPlayerHook => {
           error instanceof Error ? error.message : "오디오 재생 실패",
       });
     }
-  };
+  }, [audioState.isPlaying]);
 
-  const stopAudio = (): void => {
+  const stopAudio = useCallback((): void => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -63,7 +81,7 @@ export const useAudioPlayer = (audioUrl: string): AudioPlayerHook => {
         hasError: false,
       });
     }
-  };
+  }, []);
 
   return {
     playAudio,

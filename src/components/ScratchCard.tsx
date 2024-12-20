@@ -47,10 +47,9 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
     const centerX = width / 2;
     const centerY = height / 2;
-    const ribbonWidth = width * 0.08; // 리본 너비
-    const bowSize = width * 0.35; // 매듭 크기
+    const ribbonWidth = width * 0.08;
+    const bowSize = width * 0.35;
 
-    // 그림자 효과 설정
     ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
     ctx.shadowBlur = 5;
     ctx.shadowOffsetX = 2;
@@ -58,28 +57,21 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
     // 수직/수평 리본 그리기
     const drawBaseRibbons = () => {
-      // 리본 색상 그라데이션 (노란색)
       const ribbonGradient = ctx.createLinearGradient(0, 0, width, height);
       ribbonGradient.addColorStop(0, "#FFD700");
       ribbonGradient.addColorStop(0.5, "#FFC500");
       ribbonGradient.addColorStop(1, "#FFB700");
 
       ctx.fillStyle = ribbonGradient;
-
-      // 수직 리본
       ctx.fillRect(centerX - ribbonWidth / 2, 0, ribbonWidth, height);
-      // 수평 리본
       ctx.fillRect(0, centerY - ribbonWidth / 2, width, ribbonWidth);
 
-      // 리본 하이라이트
       ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
       ctx.fillRect(centerX - ribbonWidth / 2, 0, ribbonWidth / 3, height);
       ctx.fillRect(0, centerY - ribbonWidth / 2, width, ribbonWidth / 3);
     };
 
-    // 리본 매듭 그리기
     const drawBow = () => {
-      // 매듭 그라데이션
       const bowGradient = ctx.createRadialGradient(
         centerX,
         centerY,
@@ -92,12 +84,9 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
       bowGradient.addColorStop(0.7, "#FFC500");
       bowGradient.addColorStop(1, "#FFB700");
 
-      // 리본 루프 그리기
       const drawLoop = (direction: number) => {
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
-
-        // 더 뚱뚱한 곡선을 위해 제어점 조정
         ctx.bezierCurveTo(
           centerX + direction * bowSize * 0.4,
           centerY - bowSize * 0.3,
@@ -106,7 +95,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
           centerX + direction * bowSize * 0.8,
           centerY - bowSize * 0.15
         );
-
         ctx.bezierCurveTo(
           centerX + direction * bowSize * 0.7,
           centerY + bowSize * 0.5,
@@ -115,11 +103,9 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
           centerX,
           centerY
         );
-
         ctx.fillStyle = bowGradient;
         ctx.fill();
 
-        // 하이라이트 효과
         ctx.beginPath();
         ctx.moveTo(centerX, centerY);
         ctx.bezierCurveTo(
@@ -135,17 +121,14 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
         ctx.stroke();
       };
 
-      // 왼쪽과 오른쪽 루프 그리기
       drawLoop(-1);
       drawLoop(1);
 
-      // 중앙 매듭
       ctx.beginPath();
       ctx.arc(centerX, centerY, ribbonWidth * 1.2, 0, Math.PI * 2);
       ctx.fillStyle = "#FFB700";
       ctx.fill();
 
-      // 매듭 하이라이트
       ctx.beginPath();
       ctx.arc(
         centerX - ribbonWidth * 0.3,
@@ -158,15 +141,26 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
       ctx.fill();
     };
 
-    // 그림자 초기화
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // 순서대로 그리기 실행
     drawBaseRibbons();
     drawBow();
+  };
+
+  // 초기 선물 패턴 그리기
+  const drawInitialGiftPattern = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      drawGiftPattern(ctx);
+      return canvas.toDataURL();
+    }
+    return "";
   };
 
   const preloadImage = () => {
@@ -191,12 +185,9 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     canvas.width = width;
     canvas.height = height;
 
-    // Clear the canvas and draw gift pattern first
     ctx.clearRect(0, 0, width, height);
     ctx.globalCompositeOperation = "source-over";
     drawGiftPattern(ctx);
-
-    // Set for scratch effect
     ctx.globalCompositeOperation = "destination-out";
 
     setIsInitialized(true);
@@ -223,10 +214,8 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   }, [initialWidth, initialHeight]);
 
   useEffect(() => {
-    setIsInitialized(false);
-    setIsImageLoaded(false);
     preloadImage();
-  }, [imageUrl, width, height]);
+  }, [imageUrl]);
 
   useEffect(() => {
     if (isImageLoaded) {
@@ -257,7 +246,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     const canvas = canvasRef.current;
     if (!canvas || isCompleted || !imageRef.current) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
     setIsRevealing(true);
@@ -294,9 +283,9 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
         if (scratchMask.data[i + 3] < 128) {
           overlayData.data[i + 3] = 0;
         } else {
-          overlayData.data[i] = 212; // R for #D42626
-          overlayData.data[i + 1] = 38; // G
-          overlayData.data[i + 2] = 38; // B
+          overlayData.data[i] = 212;
+          overlayData.data[i + 1] = 38;
+          overlayData.data[i + 2] = 38;
           overlayData.data[i + 3] = Math.round(255 * (1 - eased));
         }
       }
@@ -320,7 +309,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
   useEffect(() => {
     if (isCompleted) {
-      console.log("completeScratch : ", userId, songId);
       completeScratch(userId, songId);
     }
   }, [isCompleted]);
@@ -348,7 +336,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   };
 
   const handleStart = (event: React.MouseEvent | React.TouchEvent) => {
-    event.preventDefault();
     if (isCompleted || isRevealing || !isImageLoaded) return;
 
     startScratch();
@@ -358,7 +345,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   };
 
   const handleMove = (event: React.MouseEvent | React.TouchEvent) => {
-    event.preventDefault();
     if (!isDrawing || isCompleted || isRevealing || !isImageLoaded) return;
 
     const canvas = canvasRef.current;
@@ -387,33 +373,42 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     setIsDrawing(false);
   };
 
-  // Container style
-  const containerStyle = {
-    width,
-    height,
-    backgroundColor: "#D42626", // 초기 배경색을 선물상자 색상으로 설정
-    visibility: isInitialized ? "visible" : ("hidden" as const),
-  } as const;
+  // 초기 선물 패턴 이미지 URL 생성
+  const giftPatternUrl = drawInitialGiftPattern();
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full max-w-lg mx-auto rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300"
-      style={containerStyle}
+      className="relative w-full max-w-lg mx-auto rounded-lg overflow-hidden shadow-lg"
+      style={{
+        width,
+        height,
+        backgroundColor: "#D42626",
+      }}
     >
+      {/* 초기 선물 패턴 배경 */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 bg-cover bg-center"
         style={{
-          background: `url(${imageUrl})`,
-          backgroundSize: "cover",
-          opacity: isInitialized ? 1 : 0,
-          transition: "opacity 0.3s ease-in-out",
+          backgroundImage: `url(${giftPatternUrl})`,
         }}
       />
+
+      {/* 실제 이미지 배경 */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-opacity duration-300"
+        style={{
+          backgroundImage: `url(${imageUrl})`,
+          opacity: isInitialized ? 1 : 0,
+        }}
+      />
+
+      {/* 스크래치 캔버스 */}
       <canvas
         ref={canvasRef}
         width={width}
         height={height}
+        style={{ touchAction: "none" }}
         className={`absolute top-0 left-0 w-full h-full touch-none ${
           isRevealing || !isImageLoaded || !isInitialized
             ? "pointer-events-none"

@@ -382,7 +382,13 @@ const RecentScratchList: React.FC = () => {
           </Button>
           <Button
             onClick={() => {
-              window.location.href = "https://homebrewmusic.web.app/01963";
+              window.location.href = `http://homebrewmusic.web.app/mycarol/${
+                selectedScratch?.song.id
+              }?songTitle=${selectedScratch?.song.song_title}&artistName=${
+                selectedScratch?.song.artist_name
+              }&userName=${getRandomName(
+                selectedScratch?.user_id || "1234"
+              )}&audioProgress=0`;
             }}
             fullWidth
             sx={{
