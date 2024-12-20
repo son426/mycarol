@@ -30,6 +30,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   const [isCompleted, setIsCompleted] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [lastPosition, setLastPosition] = useState<{ x: number; y: number }>({
     x: 0,
     y: 0,
@@ -37,6 +38,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
   const { startScratch, completeScratch } = useScratchStore();
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const drawGiftPattern = (ctx: CanvasRenderingContext2D) => {
     // 배경 색상 (빨간색 선물상자)
@@ -45,8 +47,8 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
     const centerX = width / 2;
     const centerY = height / 2;
-    const ribbonWidth = width * 0.08; // 리본 너비 증가
-    const bowSize = width * 0.35; // 매듭 크기 증가
+    const ribbonWidth = width * 0.08; // 리본 너비
+    const bowSize = width * 0.35; // 매듭 크기
 
     // 그림자 효과 설정
     ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
@@ -129,7 +131,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
           centerY - bowSize * 0.2
         );
         ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-        ctx.lineWidth = 3; // 하이라이트 선 두께 증가
+        ctx.lineWidth = 3;
         ctx.stroke();
       };
 
@@ -139,7 +141,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
       // 중앙 매듭
       ctx.beginPath();
-      ctx.arc(centerX, centerY, ribbonWidth * 1.2, 0, Math.PI * 2); // 중앙 매듭 크기 증가
+      ctx.arc(centerX, centerY, ribbonWidth * 1.2, 0, Math.PI * 2);
       ctx.fillStyle = "#FFB700";
       ctx.fill();
 
@@ -151,7 +153,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
         ribbonWidth * 0.5,
         0,
         Math.PI * 2
-      ); // 하이라이트 크기도 증가
+      );
       ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
       ctx.fill();
     };
@@ -173,7 +175,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     img.onload = () => {
       imageRef.current = img;
       setIsImageLoaded(true);
-      initializeCanvas();
     };
     img.onerror = () => {
       console.error("Error loading image:", imageUrl);
@@ -190,14 +191,15 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     canvas.width = width;
     canvas.height = height;
 
+    // Clear the canvas and draw gift pattern first
     ctx.clearRect(0, 0, width, height);
     ctx.globalCompositeOperation = "source-over";
-    ctx.drawImage(imageRef.current, 0, 0, width, height);
-
-    // 선물 상자 패턴 그리기
     drawGiftPattern(ctx);
 
+    // Set for scratch effect
     ctx.globalCompositeOperation = "destination-out";
+
+    setIsInitialized(true);
   };
 
   useEffect(() => {
@@ -221,8 +223,16 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   }, [initialWidth, initialHeight]);
 
   useEffect(() => {
+    setIsInitialized(false);
+    setIsImageLoaded(false);
     preloadImage();
   }, [imageUrl, width, height]);
+
+  useEffect(() => {
+    if (isImageLoaded) {
+      initializeCanvas();
+    }
+  }, [isImageLoaded, width, height]);
 
   const calculateScratchedPercentage = () => {
     const canvas = canvasRef.current;
@@ -284,7 +294,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
         if (scratchMask.data[i + 3] < 128) {
           overlayData.data[i + 3] = 0;
         } else {
-          // 애니메이션 색상을 선물상자 색상으로 변경
           overlayData.data[i] = 212; // R for #D42626
           overlayData.data[i + 1] = 38; // G
           overlayData.data[i + 2] = 38; // B
@@ -358,7 +367,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
 
     const currentPosition = getCoordinates(event.nativeEvent);
 
-    ctx.lineWidth = 40;
+    ctx.lineWidth = 50;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -378,22 +387,37 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     setIsDrawing(false);
   };
 
+  // Container style
+  const containerStyle = {
+    width,
+    height,
+    backgroundColor: "#D42626", // 초기 배경색을 선물상자 색상으로 설정
+    visibility: isInitialized ? "visible" : ("hidden" as const),
+  } as const;
+
   return (
     <div
+      ref={containerRef}
       className="relative w-full max-w-lg mx-auto rounded-lg overflow-hidden shadow-lg transform transition-transform duration-300"
-      style={{
-        width,
-        height,
-        background: `url(${imageUrl})`,
-        backgroundSize: "cover",
-      }}
+      style={containerStyle}
     >
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `url(${imageUrl})`,
+          backgroundSize: "cover",
+          opacity: isInitialized ? 1 : 0,
+          transition: "opacity 0.3s ease-in-out",
+        }}
+      />
       <canvas
         ref={canvasRef}
         width={width}
         height={height}
         className={`absolute top-0 left-0 w-full h-full touch-none ${
-          isRevealing || !isImageLoaded ? "pointer-events-none" : ""
+          isRevealing || !isImageLoaded || !isInitialized
+            ? "pointer-events-none"
+            : ""
         }`}
         onMouseDown={handleStart}
         onMouseMove={handleMove}

@@ -18,34 +18,33 @@ import { User } from "./types/schema";
 import { ScratchHistory } from "./types/customType";
 import WaitingCard from "./components/WatingCard";
 import RecentScratchList from "./components/RecentScratchList";
-// import MyScratchList from "./components/MyScratchList";
 
 interface SupabaseResponse {
   id: number;
   audio_url: string;
   image_url: string;
-  artist_name: string; // 변경
-  song_title: string; // 변경
+  artist_name: string;
+  song_title: string;
 }
 
 interface SongData {
   id: number;
   audio_url: string;
   image_url: string;
-  artist_name: string; // 변경
-  song_title: string; // 변경
+  artist_name: string;
+  song_title: string;
 }
-export const WAITING_TIME = 1 * 1 * 60 * 1000;
+
+export const WAITING_TIME = 1 * 1 * 1 * 1000;
 
 const App = () => {
-  const { isStarted, isRevealed, confirmWin } = useScratchStore();
+  const { isStarted, isRevealed } = useScratchStore();
   const [overlayOpacity, setOverlayOpacity] = useState(0);
   const [infoOpen, setInfoOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [song, setSong] = useState<SongData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasConfirmed, setHasConfirmed] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userLoading, setUserLoding] = useState(true);
   const [scratchHistory, setScratchHistory] = useState<ScratchHistory[]>([]);
@@ -90,7 +89,6 @@ const App = () => {
 
         if (error) throw error;
 
-        // 데이터 변환
         const formattedHistory: ScratchHistory[] = (rawData || []).map(
           (item: any) => ({
             id: item.id,
@@ -98,8 +96,8 @@ const App = () => {
             song: {
               id: item.songs.id,
               image_url: item.songs.image_url,
-              artist_name: item.songs.artist_name, // 변경된 부분
-              song_title: item.songs.song_title, // 변경된 부분
+              artist_name: item.songs.artist_name,
+              song_title: item.songs.song_title,
             },
           })
         );
@@ -133,14 +131,12 @@ const App = () => {
     if (currentUser?.id) {
       const fetchRandomSong = async () => {
         try {
-          // 1. 전체 곡 수를 먼저 가져옵니다
           const { count } = await supabase
             .from("songs")
             .select("*", { count: "exact", head: true });
 
           if (!count) throw new Error("No songs available");
 
-          // 2. 사용자가 이미 스크래치한 곡들의 ID를 가져옵니다
           const { data: scratchedSongs, error: scratchError } = await supabase
             .from("scratches")
             .select("song_id")
@@ -151,21 +147,19 @@ const App = () => {
           const scratchedSongIds =
             scratchedSongs?.map((scratch) => scratch.song_id) || [];
 
-          // 3. 랜덤한 오프셋 생성
           const remainingSongs = count - scratchedSongIds.length;
           if (remainingSongs <= 0) {
-            // 모든 곡을 들었다면 전체 곡에서 랜덤 선택
             const randomOffset = Math.floor(Math.random() * count);
             const { data: songs, error: songError } = await supabase
               .from("songs")
               .select(
                 `
-    id,
-    audio_url,
-    image_url,
-    artist_name,
-    song_title
-  `
+                  id,
+                  audio_url,
+                  image_url,
+                  artist_name,
+                  song_title
+                `
               )
               .range(randomOffset, randomOffset);
 
@@ -180,20 +174,18 @@ const App = () => {
               artist_name: rawSong.artist_name,
               song_title: rawSong.song_title,
             };
-            console.log("formattedSong : ", formattedSong);
             setSong(formattedSong);
           } else {
-            // 아직 안 들은 곡이 있다면 그 중에서 선택
             const { data: songs, error: songError } = await supabase
               .from("songs")
               .select(
                 `
-    id,
-    audio_url,
-    image_url,
-    artist_name,
-    song_title
-  `
+                  id,
+                  audio_url,
+                  image_url,
+                  artist_name,
+                  song_title
+                `
               )
               .not("id", "in", `(${scratchedSongIds.join(",")})`)
               .order("id", { ascending: true });
@@ -201,7 +193,6 @@ const App = () => {
             if (songError) throw songError;
             if (!songs || songs.length === 0) throw new Error("No song found");
 
-            // 클라이언트 사이드에서 랜덤하게 하나 선택
             const randomIndex = Math.floor(Math.random() * songs.length);
             const rawSong = songs[randomIndex] as SupabaseResponse;
             const formattedSong: SongData = {
@@ -211,7 +202,6 @@ const App = () => {
               artist_name: rawSong.artist_name,
               song_title: rawSong.song_title,
             };
-            console.log("formattedSong : ", formattedSong);
             setSong(formattedSong);
           }
         } catch (err) {
@@ -239,12 +229,10 @@ const App = () => {
   useEffect(() => {
     if (isStarted) {
       setOverlayOpacity(0.5);
-    } else if (isRevealed) {
-      setOverlayOpacity(0);
     } else {
       setOverlayOpacity(0);
     }
-  }, [isStarted, isRevealed]);
+  }, [isStarted]);
 
   const handleShare = async () => {
     if (!song) return;
@@ -255,7 +243,6 @@ const App = () => {
 
         await navigator.share({
           text: shareMessage,
-          // title과 url을 제거하고 text에만 포함시킴
         });
       } catch (error) {
         console.log("공유 실패:", error);
@@ -265,10 +252,10 @@ const App = () => {
     }
     setOpen(false);
   };
+
   const checkWaitingTime = (lastScratchTime: string): boolean => {
     const lastTime = new Date(lastScratchTime).getTime();
     const currentTime = new Date().getTime();
-
     const waitTime = WAITING_TIME;
     return currentTime - lastTime < waitTime;
   };
@@ -317,15 +304,6 @@ const App = () => {
         <Snowflake className="absolute bottom-20 left-[20%] text-white/20 w-10 h-10" />
         <Snowflake className="absolute bottom-40 right-[25%] text-white/20 w-8 h-8" />
       </div>
-
-      {/* Debug 정보 표시 - 개발 중에만 사용 */}
-      {/* <div className="absolute top-4 right-4 bg-black/50 text-white p-4 rounded-lg text-sm">
-        <p>User ID: {currentUser?.id}</p>
-        <p>Fingerprint: {currentUser?.fingerprint?.slice(0, 8)}...</p>
-        <p>
-          Created: {new Date(currentUser?.created_at || 0).toLocaleString()}
-        </p>
-      </div> */}
 
       <motion.div
         className="fixed inset-0 bg-[#1a365d] pointer-events-none"
@@ -376,22 +354,17 @@ const App = () => {
                   <p>공유하면 바로 뽑을 수도 있답니다!</p>
                 </div>
               ) : (
-                <>
+                <p className="text-blue-200">
                   {!isRevealed ? (
-                    <p className="text-blue-200">
-                      포장지를 뜯어서 나만의 캐롤을 뽑아보세요!
-                    </p>
+                    "포장지를 뜯어서 나만의 캐롤을 뽑아보세요!"
                   ) : (
                     <>
-                      <p className="text-blue-200">
-                        {`'${song.artist_name} - ${song.song_title}'`}
-                      </p>
-                      <p className="text-blue-200">
-                        나만의 크리스마스 캐롤이 완성됐어요!
-                      </p>
+                      {`'${song.artist_name} - ${song.song_title}'`}
+                      <br />
+                      나를 위한 크리스마스 캐롤이에요!
                     </>
                   )}
-                </>
+                </p>
               )}
             </motion.div>
           )}
@@ -456,7 +429,7 @@ const App = () => {
                     : 400
                 }
                 imageUrl={song.image_url}
-                threshold={20}
+                threshold={30}
                 songId={song.id}
                 userId={currentUser.id}
               />
@@ -470,14 +443,10 @@ const App = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{
-                duration: 0.5,
-                delay: isRevealed ? 0.3 : 0,
-              }}
+              transition={{ duration: 0.5 }}
               className="mt-8 text-center w-full px-4"
             >
-              {isWaiting ? (
-                // 대기 중일 때는 항상 공유 버튼 표시
+              {(isWaiting || isRevealed) && (
                 <Button
                   variant="contained"
                   color="success"
@@ -498,60 +467,9 @@ const App = () => {
                     setOpen(true);
                   }}
                 >
-                  {"공유하고 하나 더 뽑기"}
+                  하나 더 뽑기
                 </Button>
-              ) : isRevealed && !hasConfirmed ? (
-                // 처음 공개됐을 때는 확인 버튼 표시
-                <Button
-                  variant="contained"
-                  color="success"
-                  fullWidth
-                  sx={{
-                    borderRadius: "14px",
-                    py: 2,
-                    fontSize: "1.125rem",
-                    fontWeight: "bold",
-                    textTransform: "none",
-                    backgroundColor: "#2F9B4E",
-                    "&:hover": {
-                      backgroundColor: "#268642",
-                    },
-                    boxShadow: "0 2px 8px rgba(47, 155, 78, 0.3)",
-                  }}
-                  onClick={() => {
-                    if (!hasConfirmed) {
-                      confirmWin();
-                      setOpen(true);
-                    }
-                  }}
-                >
-                  {"확인했어요"}
-                </Button>
-              ) : hasConfirmed ? (
-                // 확인 후에는 공유 버튼 표시
-                <Button
-                  variant="contained"
-                  color="success"
-                  fullWidth
-                  sx={{
-                    borderRadius: "14px",
-                    py: 2,
-                    fontSize: "1.125rem",
-                    fontWeight: "bold",
-                    textTransform: "none",
-                    backgroundColor: "#2F9B4E",
-                    "&:hover": {
-                      backgroundColor: "#268642",
-                    },
-                    boxShadow: "0 2px 8px rgba(47, 155, 78, 0.3)",
-                  }}
-                  onClick={() => {
-                    setOpen(true);
-                  }}
-                >
-                  {"공유하고 하나 더 뽑기"}
-                </Button>
-              ) : null}
+              )}
               <Button
                 variant="text"
                 sx={{
@@ -560,11 +478,12 @@ const App = () => {
                 }}
                 onClick={() => setInfoOpen(true)}
               >
-                마이캐롤이 뭔가요?{" "}
+                마이캐롤이 뭔가요?
               </Button>
             </motion.div>
           )}
         </AnimatePresence>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -573,18 +492,6 @@ const App = () => {
         >
           <RecentScratchList />
         </motion.div>
-        {/* <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="w-full mt-8"
-        >
-          <MyScratchList
-            history={scratchHistory}
-            onSelectHistory={setSelectedHistory}
-            selectedId={selectedHistory?.id}
-          />
-        </motion.div> */}
       </div>
 
       <Dialog
@@ -633,10 +540,7 @@ const App = () => {
           }}
         >
           <Button
-            onClick={() => {
-              setOpen(false);
-              setHasConfirmed(true);
-            }}
+            onClick={() => setOpen(false)}
             fullWidth
             sx={{
               color: "white",
@@ -652,10 +556,7 @@ const App = () => {
             닫기
           </Button>
           <Button
-            onClick={() => {
-              handleShare();
-              setHasConfirmed(true);
-            }}
+            onClick={handleShare}
             fullWidth
             sx={{
               backgroundColor: "#2F9B4E",

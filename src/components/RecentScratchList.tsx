@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabaseClient";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+} from "@mui/material";
 
 // 재미있는 랜덤 이름 생성을 위한 단어 리스트
 const adjectives = [
@@ -135,10 +143,12 @@ const useConsistentRandomName = () => {
     return newName;
   };
 };
+
 const RecentScratchLog: React.FC<{
   scratch: RecentScratch;
   getRandomName: (userId: string) => string;
-}> = ({ scratch, getRandomName }) => {
+  onItemClick: (scratch: RecentScratch) => void;
+}> = ({ scratch, getRandomName, onItemClick }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -156,16 +166,13 @@ const RecentScratchLog: React.FC<{
   };
 
   const userName = getRandomName(scratch.user_id);
-
   const messages = [
     `님이 크리스마스 선물을 받았어요`,
     `님의 선물상자가 열렸어요`,
-    `님이 특별한 선물을 발견했어요`,
+    `님이 캐롤을 듣고 있어요`,
     `님의 캐롤이 울려퍼져요`,
-    `님이 새로운 캐롤을 들려줘요`,
   ];
 
-  // userId를 시드로 사용하여 일관된 메시지 선택
   const messageIndex = Math.abs(
     scratch.user_id.split("").reduce((acc, char) => {
       return char.charCodeAt(0) + ((acc << 5) - acc);
@@ -173,8 +180,10 @@ const RecentScratchLog: React.FC<{
   );
 
   return (
-    <div className="flex items-center space-x-2 py-2 hover:bg-white/5 transition-colors px-1 -mx-1 rounded group">
-      {/* 흐린 이미지 */}
+    <div
+      className="flex items-center space-x-2 py-2 hover:bg-white/5 transition-colors px-1 -mx-1 rounded group cursor-pointer"
+      onClick={() => onItemClick(scratch)}
+    >
       <div className="relative w-6 h-6 flex-shrink-0 mt-0.5">
         <div className="absolute inset-0 backdrop-blur-xl rounded-full" />
         <img
@@ -184,9 +193,7 @@ const RecentScratchLog: React.FC<{
         />
       </div>
 
-      {/* 메시지와 곡 정보 */}
       <div className="flex-1 min-w-0 space-y-0.5">
-        {/* 첫 번째 줄: 유저 메시지 */}
         <div className="flex items-center gap-x-1">
           <span className="text-xs font-medium text-white/90">{userName}</span>
           <span className="text-xs text-blue-200/90">
@@ -194,7 +201,6 @@ const RecentScratchLog: React.FC<{
           </span>
         </div>
 
-        {/* 두 번째 줄: 곡 정보 */}
         <div className="text-xs text-blue-200/80">
           <span className="font-medium text-white/80">
             {scratch.song.artist_name}
@@ -206,17 +212,19 @@ const RecentScratchLog: React.FC<{
         </div>
       </div>
 
-      {/* 타임스탬프 */}
       <div className="text-[10px] text-blue-200/60 flex-shrink-0 mt-1">
         {formatDate(scratch.scratched_at)}
       </div>
     </div>
   );
 };
-
 const RecentScratchList: React.FC = () => {
   const [recentScratches, setRecentScratches] = useState<RecentScratch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedScratch, setSelectedScratch] = useState<RecentScratch | null>(
+    null
+  );
   const getRandomName = useConsistentRandomName();
 
   useEffect(() => {
@@ -238,7 +246,7 @@ const RecentScratchList: React.FC = () => {
           `
           )
           .order("scratched_at", { ascending: false })
-          .limit(5);
+          .limit(4);
 
         if (error) throw error;
 
@@ -269,6 +277,11 @@ const RecentScratchList: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleItemClick = (scratch: RecentScratch) => {
+    setSelectedScratch(scratch);
+    setIsModalOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="text-center text-blue-200/60 py-1 text-xs">로딩중...</div>
@@ -292,10 +305,102 @@ const RecentScratchList: React.FC = () => {
             key={scratch.id}
             scratch={scratch}
             getRandomName={getRandomName}
+            onItemClick={handleItemClick}
           />
         ))}
       </div>
+
+      <Dialog
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            backgroundColor: "#1a365d",
+            color: "white",
+            backgroundImage: "linear-gradient(to bottom, #1a365d, #2d3748)",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: "white",
+            textAlign: "center",
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+            pt: 4,
+          }}
+        >
+          마이 크리스마스 캐롤 🎄
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText
+            sx={{
+              color: "rgb(191 219 254)",
+              textAlign: "center",
+              my: 2,
+            }}
+          >
+            <div>많은 크리스마스 캐롤이 있답니다.</div>
+            <div>소중한 사람에게 마음을 전해보세요</div>
+            <div className="mt-4 flex flex-col">
+              <div className="text-white font-medium">
+                {selectedScratch?.song.artist_name} -{" "}
+                {selectedScratch?.song.song_title}
+              </div>
+              <div className="mt-1">
+                들어보고 싶으시다면 아래 버튼을 눌러주세요.
+              </div>
+            </div>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            justifyContent: "stretch",
+            padding: "16px 24px",
+            gap: 2,
+          }}
+        >
+          <Button
+            onClick={() => setIsModalOpen(false)}
+            fullWidth
+            sx={{
+              color: "white",
+              borderRadius: "12px",
+              py: 1.5,
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              "&:hover": {
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
+            }}
+          >
+            닫기
+          </Button>
+          <Button
+            onClick={() => {
+              window.location.href = "https://homebrewmusic.web.app/01963";
+            }}
+            fullWidth
+            sx={{
+              backgroundColor: "#2F9B4E",
+              color: "white",
+              borderRadius: "12px",
+              py: 1.5,
+              "&:hover": {
+                backgroundColor: "#268642",
+              },
+            }}
+          >
+            바로가기
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
+
 export default RecentScratchList;
