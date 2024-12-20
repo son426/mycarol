@@ -351,9 +351,7 @@ const RecentScratchList: React.FC = () => {
                 {selectedScratch?.song.artist_name} -{" "}
                 {selectedScratch?.song.song_title}
               </div>
-              <div className="mt-1">
-                들어보고 싶으시다면 아래 버튼을 눌러주세요.
-              </div>
+              <div className="mt-1">아래 버튼을 눌러 들어보세요!</div>
             </div>
           </DialogContentText>
         </DialogContent>
