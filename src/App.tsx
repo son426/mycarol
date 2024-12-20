@@ -18,6 +18,7 @@ import { User } from "./types/schema";
 import ScratchHistoryComponent from "./components/ScratchHistory";
 import { ScratchHistory } from "./types/customType";
 import WaitingCard from "./components/WatingCard";
+import RecentScratchList from "./components/RecentScratchList";
 
 interface SupabaseResponse {
   id: number;
@@ -34,7 +35,7 @@ interface SongData {
   artist_name: string; // 변경
   song_title: string; // 변경
 }
-export const WAITING_TIME = 1 * 1 * 10 * 1000;
+export const WAITING_TIME = 1 * 1 * 60 * 1000;
 
 const App = () => {
   const { isStarted, isRevealed, confirmWin } = useScratchStore();
@@ -385,7 +386,7 @@ const App = () => {
                   ) : (
                     <>
                       <p className="text-blue-200">
-                        {`'${song.song_title} - ${song.artist_name}'`}
+                        {`'${song.artist_name} - ${song.song_title}'`}
                       </p>
                       <p className="text-blue-200">
                         나만의 크리스마스 캐롤이 완성됐어요!
@@ -477,17 +478,6 @@ const App = () => {
               }}
               className="mt-8 text-center w-full px-4"
             >
-              <Button
-                variant="text"
-                sx={{
-                  color: "rgb(191 219 254)",
-                  "&:hover": { color: "white" },
-                }}
-                onClick={() => setInfoOpen(true)}
-              >
-                마이캐롤이 뭔가요?{" "}
-              </Button>
-
               {isWaiting ? (
                 // 대기 중일 때는 항상 공유 버튼 표시
                 <Button
@@ -564,9 +554,27 @@ const App = () => {
                   {"공유하고 하나 더 뽑기"}
                 </Button>
               ) : null}
+              <Button
+                variant="text"
+                sx={{
+                  color: "rgb(191 219 254)",
+                  "&:hover": { color: "white" },
+                }}
+                onClick={() => setInfoOpen(true)}
+              >
+                마이캐롤이 뭔가요?{" "}
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="w-full mt-8"
+        >
+          <RecentScratchList />
+        </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -615,8 +623,8 @@ const App = () => {
               my: 2,
             }}
           >
-            <div>친구에게 공유하면 하나 더 뽑을 수 있어요.</div>
-            <div>지금 바로 자랑해보세요!</div>
+            <div>크리스마스 캐롤을 선물할 수 있어요!</div>
+            <div>소중한 사람에게 마음을 전해보세요</div>
           </DialogContentText>
         </DialogContent>
         <DialogActions
