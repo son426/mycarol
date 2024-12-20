@@ -18,7 +18,7 @@ import { User } from "./types/schema";
 import { ScratchHistory } from "./types/customType";
 import WaitingCard from "./components/WatingCard";
 import RecentScratchList from "./components/RecentScratchList";
-import MyScratchList from "./components/MyScratchList";
+// import MyScratchList from "./components/MyScratchList";
 
 interface SupabaseResponse {
   id: number;
@@ -35,7 +35,7 @@ interface SongData {
   artist_name: string; // 변경
   song_title: string; // 변경
 }
-export const WAITING_TIME = 1 * 1 * 1 * 1000;
+export const WAITING_TIME = 1 * 1 * 60 * 1000;
 
 const App = () => {
   const { isStarted, isRevealed, confirmWin } = useScratchStore();
@@ -50,9 +50,7 @@ const App = () => {
   const [userLoading, setUserLoding] = useState(true);
   const [scratchHistory, setScratchHistory] = useState<ScratchHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [selectedHistory, setSelectedHistory] = useState<ScratchHistory | null>(
-    null
-  );
+  const [selectedHistory] = useState<ScratchHistory | null>(null);
 
   useEffect(() => {
     const initUser = async () => {
@@ -575,7 +573,7 @@ const App = () => {
         >
           <RecentScratchList />
         </motion.div>
-        <motion.div
+        {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -586,7 +584,7 @@ const App = () => {
             onSelectHistory={setSelectedHistory}
             selectedId={selectedHistory?.id}
           />
-        </motion.div>
+        </motion.div> */}
       </div>
 
       <Dialog
