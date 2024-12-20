@@ -285,7 +285,7 @@ const RecentScratchList: React.FC = () => {
 
   return (
     <div className="w-full max-w-md px-4">
-      <h2 className="text-xs font-medium text-white/70 mb-2">최근 선물 소식</h2>
+      <h2 className="text-lg font-medium text-white mb-4">최근 선물 소식</h2>
       <div className="divide-y divide-white/5">
         {recentScratches.map((scratch) => (
           <RecentScratchLog

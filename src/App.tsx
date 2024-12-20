@@ -15,10 +15,10 @@ import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { supabase } from "./lib/supabaseClient";
 import { identifyUser } from "./utils/userIdentification";
 import { User } from "./types/schema";
-import ScratchHistoryComponent from "./components/ScratchHistory";
 import { ScratchHistory } from "./types/customType";
 import WaitingCard from "./components/WatingCard";
 import RecentScratchList from "./components/RecentScratchList";
+import MyScratchList from "./components/MyScratchList";
 
 interface SupabaseResponse {
   id: number;
@@ -35,7 +35,7 @@ interface SongData {
   artist_name: string; // 변경
   song_title: string; // 변경
 }
-export const WAITING_TIME = 1 * 1 * 60 * 1000;
+export const WAITING_TIME = 1 * 1 * 1 * 1000;
 
 const App = () => {
   const { isStarted, isRevealed, confirmWin } = useScratchStore();
@@ -581,7 +581,7 @@ const App = () => {
           transition={{ delay: 0.3 }}
           className="w-full mt-8"
         >
-          <ScratchHistoryComponent
+          <MyScratchList
             history={scratchHistory}
             onSelectHistory={setSelectedHistory}
             selectedId={selectedHistory?.id}

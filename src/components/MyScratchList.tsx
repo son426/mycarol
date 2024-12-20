@@ -50,7 +50,7 @@ const HistoryCard: React.FC<{
   );
 };
 
-const ScratchHistoryComponent: React.FC<ScratchHistoryProps> = ({
+const MyScratchList: React.FC<ScratchHistoryProps> = ({
   history,
   onSelectHistory,
   selectedId,
@@ -76,4 +76,4 @@ const ScratchHistoryComponent: React.FC<ScratchHistoryProps> = ({
   );
 };
 
-export default ScratchHistoryComponent;
+export default MyScratchList;

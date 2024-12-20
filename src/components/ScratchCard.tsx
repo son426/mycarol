@@ -39,53 +39,132 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   const imageRef = useRef<HTMLImageElement | null>(null);
 
   const drawGiftPattern = (ctx: CanvasRenderingContext2D) => {
-    const ribbonWidth = width * 0.1; // 리본 너비
-
-    // 배경 색상 (선물 상자 메인 색상)
-    ctx.fillStyle = "#D42626"; // 진한 빨간색
+    // 배경 색상 (빨간색 선물상자)
+    ctx.fillStyle = "#D42626";
     ctx.fillRect(0, 0, width, height);
 
-    // 리본 그리기
-    ctx.fillStyle = "#FFD700"; // 금색 리본
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const ribbonWidth = width * 0.08; // 리본 너비 증가
+    const bowSize = width * 0.35; // 매듭 크기 증가
 
-    // 수직 리본
-    ctx.fillRect(width / 2 - ribbonWidth / 2, 0, ribbonWidth, height);
+    // 그림자 효과 설정
+    ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
 
-    // 수평 리본
-    ctx.fillRect(0, height / 2 - ribbonWidth / 2, width, ribbonWidth);
+    // 수직/수평 리본 그리기
+    const drawBaseRibbons = () => {
+      // 리본 색상 그라데이션 (노란색)
+      const ribbonGradient = ctx.createLinearGradient(0, 0, width, height);
+      ribbonGradient.addColorStop(0, "#FFD700");
+      ribbonGradient.addColorStop(0.5, "#FFC500");
+      ribbonGradient.addColorStop(1, "#FFB700");
 
-    // 리본 교차점에 원형 장식 추가
-    ctx.beginPath();
-    ctx.arc(width / 2, height / 2, ribbonWidth * 0.7, 0, Math.PI * 2);
-    ctx.fill();
+      ctx.fillStyle = ribbonGradient;
 
-    // 리본 테두리 효과
-    ctx.strokeStyle = "#FFB700";
-    ctx.lineWidth = 2;
+      // 수직 리본
+      ctx.fillRect(centerX - ribbonWidth / 2, 0, ribbonWidth, height);
+      // 수평 리본
+      ctx.fillRect(0, centerY - ribbonWidth / 2, width, ribbonWidth);
 
-    // 수직 리본 테두리
-    ctx.strokeRect(width / 2 - ribbonWidth / 2, 0, ribbonWidth, height);
+      // 리본 하이라이트
+      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.fillRect(centerX - ribbonWidth / 2, 0, ribbonWidth / 3, height);
+      ctx.fillRect(0, centerY - ribbonWidth / 2, width, ribbonWidth / 3);
+    };
 
-    // 수평 리본 테두리
-    ctx.strokeRect(0, height / 2 - ribbonWidth / 2, width, ribbonWidth);
+    // 리본 매듭 그리기
+    const drawBow = () => {
+      // 매듭 그라데이션
+      const bowGradient = ctx.createRadialGradient(
+        centerX,
+        centerY,
+        0,
+        centerX,
+        centerY,
+        bowSize / 2
+      );
+      bowGradient.addColorStop(0, "#FFD700");
+      bowGradient.addColorStop(0.7, "#FFC500");
+      bowGradient.addColorStop(1, "#FFB700");
 
-    // 표면 텍스처 효과 추가
-    for (let i = 0; i < width; i += 20) {
-      for (let j = 0; j < height; j += 20) {
-        if ((i + j) % 40 === 0) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-          ctx.fillRect(i, j, 10, 10);
-        }
-      }
-    }
+      // 리본 루프 그리기
+      const drawLoop = (direction: number) => {
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
 
-    // 광택 효과 추가
-    const gradient = ctx.createLinearGradient(0, 0, width, height);
-    gradient.addColorStop(0, "rgba(255, 255, 255, 0.1)");
-    gradient.addColorStop(0.5, "rgba(255, 255, 255, 0)");
-    gradient.addColorStop(1, "rgba(255, 255, 255, 0.1)");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+        // 더 뚱뚱한 곡선을 위해 제어점 조정
+        ctx.bezierCurveTo(
+          centerX + direction * bowSize * 0.4,
+          centerY - bowSize * 0.3,
+          centerX + direction * bowSize * 0.7,
+          centerY - bowSize * 0.5,
+          centerX + direction * bowSize * 0.8,
+          centerY - bowSize * 0.15
+        );
+
+        ctx.bezierCurveTo(
+          centerX + direction * bowSize * 0.7,
+          centerY + bowSize * 0.5,
+          centerX + direction * bowSize * 0.4,
+          centerY + bowSize * 0.3,
+          centerX,
+          centerY
+        );
+
+        ctx.fillStyle = bowGradient;
+        ctx.fill();
+
+        // 하이라이트 효과
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.bezierCurveTo(
+          centerX + direction * bowSize * 0.2,
+          centerY - bowSize * 0.15,
+          centerX + direction * bowSize * 0.4,
+          centerY - bowSize * 0.3,
+          centerX + direction * bowSize * 0.5,
+          centerY - bowSize * 0.2
+        );
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.lineWidth = 3; // 하이라이트 선 두께 증가
+        ctx.stroke();
+      };
+
+      // 왼쪽과 오른쪽 루프 그리기
+      drawLoop(-1);
+      drawLoop(1);
+
+      // 중앙 매듭
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, ribbonWidth * 1.2, 0, Math.PI * 2); // 중앙 매듭 크기 증가
+      ctx.fillStyle = "#FFB700";
+      ctx.fill();
+
+      // 매듭 하이라이트
+      ctx.beginPath();
+      ctx.arc(
+        centerX - ribbonWidth * 0.3,
+        centerY - ribbonWidth * 0.3,
+        ribbonWidth * 0.5,
+        0,
+        Math.PI * 2
+      ); // 하이라이트 크기도 증가
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.fill();
+    };
+
+    // 그림자 초기화
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 순서대로 그리기 실행
+    drawBaseRibbons();
+    drawBow();
   };
 
   const preloadImage = () => {
