@@ -502,10 +502,7 @@ const RecentScratchList: React.FC = () => {
           className="flex items-center gap-x-1.5 text-xs text-blue-200/80 hover:text-blue-200 transition-colors group"
         >
           <span>{totalCount.toLocaleString()}명이 선물받았어요!</span>
-          <ChevronRightIcon
-            sx={{ fontSize: 14 }}
-            className="group-hover:translate-x-0.5 transition-transform"
-          />
+          <ChevronRightIcon className="group-hover:translate-x-0.5 transition-transform" />
         </button>
       </div>
 
