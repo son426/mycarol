@@ -172,6 +172,7 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     };
     img.onerror = () => {
       console.error("Error loading image:", imageUrl);
+      window.location.reload();
       img.src = "/api/placeholder/400/300";
     };
     img.src = imageUrl;
