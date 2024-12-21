@@ -39,9 +39,8 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   const { startScratch, completeScratch } = useScratchStore();
   const imageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
+  const toastTimeoutRef = useRef<NodeJS.Timeout>();
   const drawGiftPattern = (ctx: CanvasRenderingContext2D) => {
-    // 배경 색상 (빨간색 선물상자)
     ctx.fillStyle = "#D42626";
     ctx.fillRect(0, 0, width, height);
 
@@ -55,7 +54,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
 
-    // 수직/수평 리본 그리기
     const drawBaseRibbons = () => {
       const ribbonGradient = ctx.createLinearGradient(0, 0, width, height);
       ribbonGradient.addColorStop(0, "#FFD700");
@@ -150,7 +148,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     drawBow();
   };
 
-  // 초기 선물 패턴 그리기
   const drawInitialGiftPattern = () => {
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -194,6 +191,20 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     setIsInitialized(true);
   };
 
+  const showToast = () => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const handleResize = () => {
       const screenWidth = window.innerWidth;
@@ -223,6 +234,12 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
       initializeCanvas();
     }
   }, [isImageLoaded, width, height]);
+
+  useEffect(() => {
+    if (isCompleted) {
+      completeScratch(userId, songId);
+    }
+  }, [isCompleted]);
 
   const calculateScratchedPercentage = () => {
     const canvas = canvasRef.current;
@@ -308,12 +325,6 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     requestAnimationFrame(animate);
   };
 
-  useEffect(() => {
-    if (isCompleted) {
-      completeScratch(userId, songId);
-    }
-  }, [isCompleted]);
-
   const getCoordinates = (
     event: MouseEvent | TouchEvent
   ): { x: number; y: number } => {
@@ -336,8 +347,17 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
     };
   };
 
+  const handleLoadingInteraction = (
+    event: React.MouseEvent | React.TouchEvent
+  ) => {
+    event.preventDefault();
+    if (!isImageLoaded || !isInitialized) {
+      showToast();
+    }
+  };
+
   const handleStart = (event: React.MouseEvent | React.TouchEvent) => {
-    if (isCompleted || isRevealing || !isImageLoaded) return;
+    if (isCompleted || isRevealing || !isImageLoaded || !isInitialized) return;
 
     startScratch();
     const coords = getCoordinates(event.nativeEvent);
@@ -346,7 +366,14 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   };
 
   const handleMove = (event: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing || isCompleted || isRevealing || !isImageLoaded) return;
+    if (
+      !isDrawing ||
+      isCompleted ||
+      isRevealing ||
+      !isImageLoaded ||
+      !isInitialized
+    )
+      return;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -378,51 +405,67 @@ const ScratchCard: React.FC<ScratchCardProps> = ({
   const giftPatternUrl = drawInitialGiftPattern();
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full max-w-lg mx-auto rounded-lg overflow-hidden shadow-lg"
-      style={{
-        width,
-        height,
-        backgroundColor: "#D42626",
-      }}
-    >
-      {/* 초기 선물 패턴 배경 */}
+    <div className="relative">
+      {/* 메인 컨테이너 */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${giftPatternUrl})`,
-        }}
-      />
-
-      {/* 실제 이미지 배경 */}
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-opacity duration-300"
-        style={{
-          backgroundImage: `url(${imageUrl})`,
-          opacity: isInitialized ? 1 : 0,
-        }}
-      />
-
-      {/* 스크래치 캔버스 */}
-      <canvas
-        ref={canvasRef}
-        width={width}
-        height={height}
-        style={{ touchAction: "none" }}
-        className={`absolute top-0 left-0 w-full h-full touch-none ${
-          isRevealing || !isImageLoaded || !isInitialized
-            ? "pointer-events-none"
-            : ""
+        ref={containerRef}
+        className={`relative w-full max-w-lg mx-auto rounded-lg overflow-hidden shadow-lg ${
+          !isImageLoaded || !isInitialized ? "cursor-not-allowed" : ""
         }`}
-        onMouseDown={handleStart}
-        onMouseMove={handleMove}
-        onMouseUp={handleEnd}
-        onMouseLeave={handleEnd}
-        onTouchStart={handleStart}
-        onTouchMove={handleMove}
-        onTouchEnd={handleEnd}
-      />
+        style={{
+          width,
+          height,
+          backgroundColor: "#D42626",
+        }}
+        onMouseDown={handleLoadingInteraction}
+        onTouchStart={handleLoadingInteraction}
+      >
+        {/* 로딩 상태 오버레이 */}
+        {(!isImageLoaded || !isInitialized) && (
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-10">
+            <div className="bg-black/60 text-white px-4 py-2 rounded-full text-sm font-medium">
+              선물 가져오는중...
+            </div>
+          </div>
+        )}
+
+        {/* 초기 선물 패턴 배경 */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url(${giftPatternUrl})`,
+          }}
+        />
+
+        {/* 실제 이미지 배경 */}
+        <div
+          className="absolute inset-0 bg-cover bg-center transition-opacity duration-300"
+          style={{
+            backgroundImage: `url(${imageUrl})`,
+            opacity: isInitialized ? 1 : 0,
+          }}
+        />
+
+        {/* 스크래치 캔버스 */}
+        <canvas
+          ref={canvasRef}
+          width={width}
+          height={height}
+          style={{ touchAction: "none" }}
+          className={`absolute top-0 left-0 w-full h-full touch-none ${
+            isRevealing || !isImageLoaded || !isInitialized
+              ? "pointer-events-none"
+              : "cursor-default"
+          }`}
+          onMouseDown={handleStart}
+          onMouseMove={handleMove}
+          onMouseUp={handleEnd}
+          onMouseLeave={handleEnd}
+          onTouchStart={handleStart}
+          onTouchMove={handleMove}
+          onTouchEnd={handleEnd}
+        />
+      </div>
     </div>
   );
 };

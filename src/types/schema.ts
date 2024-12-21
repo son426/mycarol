@@ -8,18 +8,6 @@ export interface User {
   created_at: string;
 }
 
-export interface Artist {
-  id: number;
-  name: string;
-  profile_image_url: string;
-}
-
-export interface OriginalSong {
-  id: number;
-  title: string;
-  image_url: string;
-}
-
 export interface Song {
   id: number;
   audio_url: string;
