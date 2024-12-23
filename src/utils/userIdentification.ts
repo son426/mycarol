@@ -76,26 +76,30 @@ export const identifyUser = async (): Promise<User | null> => {
     });
 
     // 먼저 fingerprint로 사용자 검색
-    const { data: existingUserByFingerprint, error: fingerprintError } =
-      await supabase
-        .from("users")
-        .select("*")
-        .eq("fingerprint", fingerprint)
-        .maybeSingle();
+    const { data: fingerprintUsers, error: fingerprintError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("fingerprint", fingerprint);
 
     if (fingerprintError) {
       return handleError(fingerprintError, "fingerprint search");
     }
 
-    // fingerprint로 찾은 사용자가 있으면 업데이트 후 반환
-    if (existingUserByFingerprint) {
+    // fingerprint로 찾은 사용자가 있으면 가장 최근 사용자 선택 후 업데이트
+    if (fingerprintUsers && fingerprintUsers.length > 0) {
+      const mostRecentUser = fingerprintUsers.reduce((prev, current) => {
+        return new Date(current.created_at) > new Date(prev.created_at)
+          ? current
+          : prev;
+      });
+
       const { data: updatedUser, error: updateError } = await supabase
         .from("users")
         .update({
           device_id: deviceId,
           local_storage_key: localStorageKey,
         })
-        .eq("id", existingUserByFingerprint.id)
+        .eq("id", mostRecentUser.id)
         .select()
         .single();
 
@@ -107,25 +111,30 @@ export const identifyUser = async (): Promise<User | null> => {
     }
 
     // fingerprint로 못찾았으면 localStorage key로 검색
-    const { data: existingUserByStorage, error: storageError } = await supabase
+    const { data: storageUsers, error: storageError } = await supabase
       .from("users")
       .select("*")
-      .eq("local_storage_key", localStorageKey)
-      .maybeSingle();
+      .eq("local_storage_key", localStorageKey);
 
     if (storageError) {
       return handleError(storageError, "localStorage key search");
     }
 
-    // localStorage key로 찾은 사용자가 있으면 업데이트 후 반환
-    if (existingUserByStorage) {
+    // localStorage key로 찾은 사용자가 있으면 가장 최근 사용자 선택 후 업데이트
+    if (storageUsers && storageUsers.length > 0) {
+      const mostRecentUser = storageUsers.reduce((prev, current) => {
+        return new Date(current.created_at) > new Date(prev.created_at)
+          ? current
+          : prev;
+      });
+
       const { data: updatedUser, error: updateError } = await supabase
         .from("users")
         .update({
           device_id: deviceId,
           fingerprint: fingerprint,
         })
-        .eq("id", existingUserByStorage.id)
+        .eq("id", mostRecentUser.id)
         .select()
         .single();
 
@@ -134,22 +143,6 @@ export const identifyUser = async (): Promise<User | null> => {
       }
 
       return updatedUser;
-    }
-
-    // 마지막으로 한번 더 fingerprint 체크 (race condition 방지)
-    const { data: finalFingerprintCheck, error: finalCheckError } =
-      await supabase
-        .from("users")
-        .select("*")
-        .eq("fingerprint", fingerprint)
-        .maybeSingle();
-
-    if (finalCheckError) {
-      return handleError(finalCheckError, "final fingerprint check");
-    }
-
-    if (finalFingerprintCheck) {
-      return finalFingerprintCheck;
     }
 
     // 새 사용자 생성
@@ -167,25 +160,6 @@ export const identifyUser = async (): Promise<User | null> => {
       .single();
 
     if (createError) {
-      // 생성 실패 시 마지막으로 한번 더 fingerprint로 검색
-      const { data: existingUser, error: lastCheckError } = await supabase
-        .from("users")
-        .select("*")
-        .eq("fingerprint", fingerprint)
-        .maybeSingle();
-
-      if (lastCheckError) {
-        return handleError(lastCheckError, "last existence check");
-      }
-
-      if (existingUser) {
-        console.warn(
-          "User already exists, returning existing user:",
-          existingUser
-        );
-        return existingUser;
-      }
-
       return handleError(createError, "create new user");
     }
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ScratchCard from "./components/ScratchCard";
 import { useScratchStore } from "./stores/useScratchStore";
-import { Snowflake } from "lucide-react";
+import { RefreshCw, Snowflake } from "lucide-react";
 import {
   Dialog,
   DialogTitle,
@@ -56,6 +56,7 @@ const App = () => {
   const [letterOpen, setLetterOpen] = useState(false);
   const [hasReadLetter, setHasReadLetter] = useState(false);
   const [selectedLetter, setSelectedLetter] = useState(LETTER_MESSAGES[0]);
+  const [hasShared, setHasShared] = useState(false);
 
   const isCardReady = useLoadingStore((state) => state.isCardReady);
 
@@ -259,6 +260,8 @@ const App = () => {
         await navigator.share({
           text: shareMessage,
         });
+
+        setHasShared(true); // Set share status after successful share
       } catch (error) {
         console.log("공유 실패:", error);
       }
@@ -285,6 +288,10 @@ const App = () => {
   const isWaiting =
     scratchHistory.length > 0 &&
     checkWaitingTime(scratchHistory[0].scratched_at);
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
 
   if (isLoading || userLoading || !currentUser || historyLoading || !song) {
     return (
@@ -518,7 +525,7 @@ const App = () => {
                         setOpen(true);
                       }}
                     >
-                      공유하기
+                      하나 더 뽑기
                     </Button>
                   )}
                 </>
@@ -660,6 +667,10 @@ const App = () => {
           >
             <div>크리스마스 캐롤을 선물할 수 있어요!</div>
             <div>소중한 사람에게 마음을 전해보세요</div>
+
+            <div style={{ marginTop: 24 }}>
+              공유하고 선물을 하나 더 뽑아보세요!
+            </div>
           </DialogContentText>
         </DialogContent>
         <DialogActions
@@ -786,6 +797,48 @@ const App = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <AnimatePresence>
+        {hasShared && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            transition={{ duration: 0.5, type: "spring", stiffness: 200 }}
+            className="fixed bottom-8 left-0 right-0 px-4"
+          >
+            <Button
+              variant="outlined"
+              fullWidth
+              sx={{
+                borderRadius: "14px",
+                py: 1.75,
+                fontSize: "1rem",
+                fontWeight: "bold",
+                textTransform: "none",
+                backgroundColor: "white",
+                color: "#2F9B4E",
+                border: "2px solid #2F9B4E",
+                "&:hover": {
+                  backgroundColor: "#f0fdf4",
+                  border: "2px solid #2F9B4E",
+                },
+                boxShadow: "0 2px 8px rgba(47, 155, 78, 0.2)",
+                maxWidth: "240px",
+                margin: "0 auto",
+                display: "flex",
+                gap: 1,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onClick={handleRefresh}
+            >
+              <RefreshCw size={20} />
+              하나 더 뽑기
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
